@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('mitra_id')->constrained('mitra_masters')->cascadeOnDelete();
             $table->enum('jenis_fee', ['1', '2']); //1.Dapem 2.Tagihan
             $table->decimal('fee_banpot', 20, 2);
+            $table->decimal('saldo_mengendap', 20, 2);
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('updated_by')->nullable();
             $table->string('deleted_by')->nullable();

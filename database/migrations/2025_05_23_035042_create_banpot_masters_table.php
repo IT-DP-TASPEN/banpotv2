@@ -18,6 +18,10 @@ return new class extends Migration
             $table->string('nama_nasabah')->nullable();
             $table->string('notas')->nullable();
             $table->string('rek_kredit')->nullable();
+            $table->string('tenor')->nullable();
+            $table->string('angsuran_ke')->nullable();
+            $table->date('tat_kredit')->nullable();
+            $table->date('tmt_kredit')->nullable();
             $table->decimal('gaji_pensiun', 20, 2)->nullable();
             $table->decimal('nominal_potongan', 20, 2)->nullable();
             $table->decimal('saldo_mengendap', 20, 2)->nullable();

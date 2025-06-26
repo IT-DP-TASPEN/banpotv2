@@ -20,7 +20,7 @@ class ParameterFeeBanpotResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $navigationGroup = 'Parameter';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 7;
 
     public static function form(Form $form): Form
     {
@@ -74,6 +74,39 @@ class ParameterFeeBanpotResource extends Resource
                         $set('fee_banpot', $formattedValue);
                     })
                     ->rules(['numeric', 'decimal:0,2']),
+                Forms\Components\TextInput::make('saldo_mengendap')
+                    ->required()
+                    ->prefix('Rp')
+                    ->live(onBlur: false)
+                    ->afterStateUpdated(function ($state, callable $set) {
+                        // Remove any non-numeric characters
+                        $numericValue = preg_replace('/[^0-9]/', '', $state);
+
+                        // Only format if there's a value
+                        if ($numericValue !== '') {
+                            // Format with thousand separators
+                            $formattedValue = number_format((int)$numericValue, 0, ',', '.');
+                            $set('saldo_mengendap', $formattedValue);
+                        }
+                    })
+                    ->dehydrateStateUsing(fn($state) => preg_replace('/[^0-9]/', '', $state))
+                    ->formatStateUsing(function ($state) {
+                        // When loading existing value from database
+                        if (is_numeric($state)) {
+                            return number_format((int)$state, 0, ',', '.');
+                        }
+                        return $state;
+                    })
+                    ->rules([
+                        function () {
+                            return function (string $attribute, $value, \Closure $fail) {
+                                // Check if the value ends with ".00"
+                                if (preg_match('/\.00$/', $value)) {
+                                    $fail("Format nominal tidak valid. Jangan gunakan desimal (.00).");
+                                }
+                            };
+                        },
+                    ]),
             ]);
     }
 
@@ -100,6 +133,10 @@ class ParameterFeeBanpotResource extends Resource
                     ->numeric()
                     ->sortable()
                     ->suffix('%'),
+                Tables\Columns\TextColumn::make('saldo_mengendap')
+                    ->numeric()
+                    ->sortable()
+                    ->prefix('Rp'),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()

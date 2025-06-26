@@ -2,22 +2,26 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
-use App\Models\User;
 use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
+use App\Models\User;
 use Filament\Tables;
+use Filament\Forms\Form;
 use Filament\Tables\Table;
+use App\Models\MitraCabang;
+use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Resources\UserResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use App\Filament\Resources\UserResource\RelationManagers;
+use App\Models\MitraCabangMaster;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Master Data';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -30,17 +34,58 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255),
-                Forms\Components\DateTimePicker::make('email_verified_at'),
+                Forms\Components\DateTimePicker::make('email_verified_at')
+                    ->default(now()),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->required()
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('roles')
+                    ->maxLength(255)
+                    ->dehydrateStateUsing(function ($state, $context) {
+                        if (filled($state)) {
+                            return bcrypt($state);
+                        }
+                        if ($context === 'edit') {
+                            return fn($record) => $record->password;
+                        }
+                        return null;
+                    })
+                    ->required(fn($context) => $context === 'create')
+                    ->label('Password')
+                    ->helperText('Kosongkan jika tidak ingin mengubah password')
+                    ->dehydrated(fn($state) => filled($state)),
+                Forms\Components\Select::make('roles')
+                    ->options([
+                        '0' => 'Super Admin',
+                        '1' => 'Admin',
+                        '2' => 'Approval Bank dp taspen',
+                        '3' => 'Staff Bank dp taspen',
+                        '4' => 'Approval Mitra Pusat',
+                        '5' => 'Approval Mitra Cabang',
+                        '6' => 'Staff Mitra Pusat',
+                        '7' => 'Staff Mitra Cabang',
+                    ])
                     ->required(),
-                Forms\Components\TextInput::make('mitra_id')
-                    ->numeric(),
-                Forms\Components\TextInput::make('mitra_cabang_id')
-                    ->numeric(),
+                Forms\Components\Select::make('mitra_id')
+                    ->relationship('mitraMaster', 'nama_mitra')
+                    ->nullable()
+                    ->searchable()
+                    ->preload()
+                    ->live(),
+
+                Forms\Components\Select::make('mitra_cabang_id')
+                    ->options(function (Forms\Get $get) {
+                        $mitraId = $get('mitra_id');
+
+                        if (!$mitraId) {
+                            return [];
+                        }
+
+                        return MitraCabangMaster::where('mitra_id', $mitraId)
+                            ->pluck('nama_cabang', 'id');
+                    })
+                    ->nullable()
+                    ->searchable()
+                    ->preload()
+                    ->disabled(fn(Forms\Get $get): bool => !$get('mitra_id')),
             ]);
     }
 
@@ -55,13 +100,28 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('roles'),
-                Tables\Columns\TextColumn::make('mitra_id')
-                    ->numeric()
+                Tables\Columns\TextColumn::make('roles')
+                    ->label('Role')
+                    ->formatStateUsing(function ($state) {
+                        $roles = [
+                            '0' => 'Super Admin',
+                            '1' => 'Admin',
+                            '2' => 'Approval Bank dp taspen',
+                            '3' => 'Staff Bank dp taspen',
+                            '4' => 'Approval Mitra Pusat',
+                            '5' => 'Approval Mitra Cabang',
+                            '6' => 'Staff Mitra Pusat',
+                            '7' => 'Staff Mitra Cabang',
+                        ];
+                        return $roles[$state] ?? $state;
+                    })
                     ->sortable(),
-                Tables\Columns\TextColumn::make('mitra_cabang_id')
-                    ->numeric()
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('mitraMaster.nama_mitra')
+                    ->label('Mitra Pusat')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('mitraCabang.nama_cabang')
+                    ->label('Mitra Cabang')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

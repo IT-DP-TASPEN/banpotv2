@@ -29,10 +29,9 @@ return new class extends Migration
             $table->string('sp_deb_flagging')->nullable();
             $table->string('foto_tab')->nullable();
             $table->string('form_pindah_kantor')->nullable();
-            $table->enum('status_permintaan', ['1', '2', '3', '4', '5', '6']);
+            $table->enum('status_permintaan', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']); //1.request, 2.checked by mitra, 3.approved by mitra, 4.rejected by mitra, 5. canceled by mitra ,6.checked by bank dp taspen, 7.approved by bank dp taspen, 8.rejected by bank dp taspen , 9.On Process, 10. Success, 11. Failed
             $table->text('keterangan')->nullable();
             $table->string('bukti_hasil')->nullable();
-            $table->foreignId('biaya_id')->constrained('parameter_biayas')->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('updated_by')->nullable();
             $table->string('deleted_by')->nullable();

@@ -22,7 +22,7 @@ class BanpotMasterNeedApproveResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Banpot';
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 10;
 
     public static function form(Form $form): Form
     {
@@ -612,9 +612,9 @@ class BanpotMasterNeedApproveResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\ForceDeleteBulkAction::make(),
+                    // Tables\Actions\RestoreBulkAction::make(),
                 ]),
             ]);
     }
@@ -630,7 +630,7 @@ class BanpotMasterNeedApproveResource extends Resource
     {
         return [
             'index' => Pages\ListBanpotMasterNeedApproves::route('/'),
-            'create' => Pages\CreateBanpotMasterNeedApprove::route('/create'),
+            // 'create' => Pages\CreateBanpotMasterNeedApprove::route('/create'),
             'view' => Pages\ViewBanpotMasterNeedApprove::route('/{record}'),
             'edit' => Pages\EditBanpotMasterNeedApprove::route('/{record}/edit'),
         ];

@@ -20,9 +20,11 @@ class BanpotMasterNeedApproveMitraResource extends Resource
 {
     protected static ?string $model = BanpotMasterNeedApproveMitra::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-document-check';
     protected static ?string $navigationGroup = 'Banpot';
-    protected static ?int $navigationSort = 3;
+
+    protected static ?string $navigationLabel = 'Approval Bantuan Potong Mitra';
+    protected static ?int $navigationSort = 9;
 
     public static function form(Form $form): Form
     {
@@ -79,6 +81,9 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                         if ($gajiPensiun > 0 && $jumlahTertagih > 0) {
                             $pinbukSisaGaji = $gajiPensiun - $jumlahTertagih;
                             $set('pinbuk_sisa_gaji', number_format($pinbukSisaGaji, 0, ',', '.'));
+
+                            $saldoAfterPinbuk = $gajiPensiun - $pinbukSisaGaji;
+                            $set('saldo_after_pinbuk', number_format($saldoAfterPinbuk, 0, ',', '.'));
                         }
                     })
                     ->dehydrateStateUsing(fn($state) => preg_replace('/[^0-9]/', '', $state))
@@ -113,6 +118,7 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                             // Format with thousand separators
                             $formattedValue = number_format((int)$numericValue, 0, ',', '.');
                             $set('nominal_potongan', $formattedValue);
+                            $set('saldo_mengendap', number_format(10000, 0, ',', '.')); // Set default saldo_mengendap
                         }
 
                         // Calculate jumlah_tertagih
@@ -128,6 +134,9 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                             if ($gajiPensiun > 0) {
                                 $pinbukSisaGaji = $gajiPensiun - $jumlahTertagih;
                                 $set('pinbuk_sisa_gaji', number_format($pinbukSisaGaji, 0, ',', '.'));
+
+                                $saldoAfterPinbuk = $gajiPensiun - $pinbukSisaGaji;
+                                $set('saldo_after_pinbuk', number_format($saldoAfterPinbuk, 0, ',', '.'));
                             }
                         }
                     })
@@ -152,9 +161,10 @@ class BanpotMasterNeedApproveMitraResource extends Resource
 
                 Forms\Components\TextInput::make('saldo_mengendap')
                     ->required()
-                    ->default(10000)
                     ->prefix('Rp')
                     ->live(onBlur: false)
+                    ->disabled() // Make it read-only since it's calculated automatically
+                    ->dehydrated()
                     ->afterStateUpdated(function ($state, callable $set, callable $get) {
                         // Remove any non-numeric characters
                         $numericValue = preg_replace('/[^0-9]/', '', $state);
@@ -231,25 +241,20 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                     ->helperText('Field ini akan terisi otomatis berdasarkan pengurangan Nominal Gaji dan Jumlah Tertagih'),
                 Forms\Components\TextInput::make('saldo_after_pinbuk')
                     ->required()
-                    ->dehydrated()
-                    ->disabled()
-                    ->default(0)  // Changed from 0.00 to '0'
                     ->prefix('Rp')
-                    ->live(onBlur: false)
+                    ->disabled() // Make it read-only
+                    ->dehydrated() // Ensure the value is saved to database
                     ->afterStateUpdated(function ($state, callable $set) {
-
-
+                        // Format the value for display
                         $numericValue = preg_replace('/[^0-9]/', '', $state);
-
-
-                        $formattedValue = number_format((int)$numericValue, 0, ',', '.');
-                        $set('saldo_after_pinbuk', $formattedValue);
+                        if ($numericValue !== '') {
+                            $formattedValue = number_format((int)$numericValue, 0, ',', '.');
+                            $set('saldo_after_pinbuk', $formattedValue);
+                        }
                     })
                     ->dehydrateStateUsing(function ($state) {
                         // Clean the value for database storage
                         $cleanValue = preg_replace('/[^0-9]/', '', $state);
-
-                        // Return 0 if empty, otherwise return the numeric value
                         return $cleanValue === '' ? 0 : (int)$cleanValue;
                     })
                     ->formatStateUsing(function ($state) {
@@ -257,17 +262,14 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                         if ($state === null || $state === '') {
                             return '0';
                         }
-
                         if (is_numeric($state)) {
                             return number_format((int)$state, 0, ',', '.');
                         }
-
                         return $state;
                     })
                     ->rules([
                         function () {
                             return function (string $attribute, $value, \Closure $fail) {
-                                // Check if the value ends with ".00"
                                 if (preg_match('/\.00$/', $value)) {
                                     $fail("Format nominal tidak valid. Jangan gunakan desimal (.00).");
                                 }
@@ -279,23 +281,46 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                 Forms\Components\TextInput::make('rek_transfer')
                     ->maxLength(255),
                 Forms\Components\Select::make('status_banpot')
-                    ->options([
-                        '1' => 'requested',
-                        '2' => 'approved',
-                        '3' => 'on process',
-                        '4' => 'success',
-                        '5' => 'failed',
-                        '6' => 'duplicate'
-                    ])
-                    ->default(1),
-                Forms\Components\Textarea::make('keterangan')
+                    ->options(function () {
+                        $options = [
+                            '1' => 'Request',
+
+                        ];
+                        // Add admin-only option if user is admin
+                        if (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()) { // Adjust this condition as needed
+                            $options['2'] = 'Checked by Mitra';
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                            $options['6'] = 'Checked by Bank DP Taspen';
+                            $options['7'] = 'Approved by Bank DP Taspen';
+                            $options['8'] = 'Rejected by Bank DP Taspen';
+                            $options['9'] = 'On Process';
+                            $options['10'] = 'Success';
+                            $options['11'] = 'Failed';
+                        }
+
+                        if (auth()->user()->isApprovalMitraPusat()) {
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                        }
+
+
+                        return $options;
+                    })
+                    ->default('1')
                     ->columnSpanFull(),
+                Forms\Components\Textarea::make('keterangan')
+                    ->columnSpanFull()
+                    ->visible(fn() => auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()),
                 Forms\Components\TextInput::make('user_id')
                     ->hidden()
                     ->required()
                     ->numeric(),
                 Forms\Components\Select::make('created_by')
                     ->relationship('user', 'name')
+                    ->visible(fn() => auth()->user()->isAdmin() || auth()->user()->isSuperAdmin())
                     ->disabled()
                     ->dehydrated()
                     ->default(auth()->id()),
@@ -310,8 +335,6 @@ class BanpotMasterNeedApproveMitraResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('banpot_id')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('user.name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('nama_nasabah')
                     ->searchable(),
@@ -330,8 +353,6 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                     ->sortable()
                     ->summarize(Sum::make()),
                 Tables\Columns\TextColumn::make('saldo_mengendap')
-                    ->sortable()
-                    ->numeric()
                     ->summarize(Sum::make()),
                 Tables\Columns\TextColumn::make('jumlah_tertagih')
                     ->numeric()
@@ -342,15 +363,21 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                     ->sortable()
                     ->summarize(Sum::make()),
                 Tables\Columns\TextColumn::make('saldo_after_pinbuk')
+                    ->hidden()
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make()),
                 Tables\Columns\TextColumn::make('bank_transfer')
+                    ->hidden()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('rek_transfer')
+                    ->hidden()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mitraMaster.jenis_fee')
+                    ->visible(false)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('mitraMaster.fee_banpot')
+                    ->visible(false)
                     ->searchable(),
                 Tables\Columns\TextColumn::make('pembayaran')
                     ->getStateUsing(function ($record) {
@@ -368,10 +395,10 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                         }
                         return $hasil; // Return numeric value for summarizer
                     })
-                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
                     ->summarize([
                         Summarizer::make()
-                            ->label('Total Pembayaran')
+                            ->label('Total')
                             ->using(function () {
                                 return BanpotMaster::query()
                                     ->with('mitraMaster')
@@ -511,24 +538,8 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                         isset($record->otenMaster->kode_otentifikasi)
                             && in_array($record->otenMaster->kode_otentifikasi, [13, 14, 15, 30])
                     ),
-                Tables\Columns\TextColumn::make('status_banpot')
-                    ->label('Status')
-                    ->badge()
-                    ->getStateUsing(fn($record) => match ($record->status_banpot) {
-                        '1' => 'requested',
-                        '2' => 'approved',
-                        '3' => 'on process', // Perhatikan spasi di sini
-                        '4' => 'success',
-                        '5' => 'failed',
-                        '6' => 'duplicate', // Tambahkan default untuk nilai tidak terduga
-                    })
-                    ->colors([
-                        'warning' => fn($state) => in_array($state, ['requested', 'on process']),
-                        'success' => fn($state) => in_array($state, ['approved', 'success']),
-                        'danger' => fn($state) => in_array($state, ['failed', 'duplicate']),
-                    ])
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('keterangan')
+
+                Tables\Columns\TextColumn::make('validasi')
                     ->badge()
                     ->separator(',')
                     ->listWithLineBreaks()
@@ -590,6 +601,25 @@ class BanpotMasterNeedApproveMitraResource extends Resource
 
                         return implode(', ', $messages);
                     }),
+
+                Tables\Columns\TextColumn::make('keterangan'),
+                Tables\Columns\TextColumn::make('status_banpot')
+                    ->label('Status')
+                    ->badge()
+                    ->getStateUsing(fn($record) => match ($record->status_banpot) {
+                        '1' => 'requested',
+                        '2' => 'approved',
+                        '3' => 'on process', // Perhatikan spasi di sini
+                        '4' => 'success',
+                        '5' => 'failed',
+                        '6' => 'duplicate', // Tambahkan default untuk nilai tidak terduga
+                    })
+                    ->colors([
+                        'warning' => fn($state) => in_array($state, ['requested', 'on process']),
+                        'success' => fn($state) => in_array($state, ['approved', 'success']),
+                        'danger' => fn($state) => in_array($state, ['failed', 'duplicate']),
+                    ])
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
@@ -612,9 +642,9 @@ class BanpotMasterNeedApproveMitraResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\ForceDeleteBulkAction::make(),
+                    // Tables\Actions\RestoreBulkAction::make(),
                 ]),
             ]);
     }
@@ -630,7 +660,7 @@ class BanpotMasterNeedApproveMitraResource extends Resource
     {
         return [
             'index' => Pages\ListBanpotMasterNeedApproveMitras::route('/'),
-            'create' => Pages\CreateBanpotMasterNeedApproveMitra::route('/create'),
+            // 'create' => Pages\CreateBanpotMasterNeedApproveMitra::route('/create'),
             'view' => Pages\ViewBanpotMasterNeedApproveMitra::route('/{record}'),
             'edit' => Pages\EditBanpotMasterNeedApproveMitra::route('/{record}/edit'),
         ];
@@ -638,9 +668,37 @@ class BanpotMasterNeedApproveMitraResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]);
+            ])
+            ->where('status_banpot', 1);
+
+        $user = auth()->user();
+
+        // Admin can see all data with status_banpot = 1
+        if ($user->isAdmin() || $user->isSuperAdmin()) {
+            return $query;
+        }
+
+        // For approval mitra pusat (role 4), show all data from their mitra's branches
+        if ($user->roles == '4') {
+            return $query->whereHas('user', function ($q) use ($user) {
+                $q->where('mitra_id', $user->mitra_id);
+            });
+        }
+
+        // For other roles, show only their branch data or their own created data
+        return $query->where(function ($q) use ($user) {
+            $q->where('created_by', $user->id)
+                ->orWhereHas('user', function ($subQuery) use ($user) {
+                    $subQuery->where('mitra_cabang_id', $user->mitra_cabang_id);
+                });
+        });
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isApprovalMitraPusat();
     }
 }

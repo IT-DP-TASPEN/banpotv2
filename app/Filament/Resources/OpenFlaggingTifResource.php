@@ -17,9 +17,11 @@ class OpenFlaggingTifResource extends Resource
 {
     protected static ?string $model = OpenFlaggingTif::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'Permintaan';
-    protected static ?int $navigationSort = 2;
+    protected static ?string $navigationIcon = 'heroicon-o-document-arrow-up';
+    protected static ?string $navigationGroup = 'Request Flagging and Mutasi';
+
+    protected static ?string $navigationLabel = 'Request Open Flagging TIF';
+    protected static ?int $navigationSort = 14;
 
     public static function form(Form $form): Form
     {
@@ -27,35 +29,87 @@ class OpenFlaggingTifResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('permintaan_id')
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\Textarea::make('wilayah')
-                    ->required()
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('nama_nasabah')
-                    ->required()
-                    ->columnSpanFull(),
+                    ->unique(ignoreRecord: true)
+                    ->default(function () {
+                        // Ambil ID transaksi terakhir
+                        $latest = OpenFlaggingTif::orderBy('id', 'desc')->first();
+
+                        // Generate nomor urut
+                        $sequence = $latest ?
+                            (int) str_replace('OF', '', $latest->permintaan_id) + 1 :
+                            1;
+
+                        return 'OF' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                    })
+                    ->disabled()
+                    ->dehydrated()
+                    ->columnSpanFull()
+                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                Forms\Components\TextInput::make('wilayah')
+                    ->required(),
+                Forms\Components\TextInput::make('nama_nasabah')
+                    ->required(),
                 Forms\Components\TextInput::make('notas')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('nik')
                     ->maxLength(255),
-                Forms\Components\Textarea::make('tempat_lahir')
-                    ->columnSpanFull(),
+                Forms\Components\TextInput::make('tempat_lahir'),
                 Forms\Components\DatePicker::make('tanggal_lahir'),
                 Forms\Components\Textarea::make('alamat')
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('sk_lulus')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('status_permintaan')
-                    ->required(),
+                Forms\Components\FileUpload::make('sk_lunas')
+                    ->label('Surat Keterangan Lunas')
+                    ->columnSpanFull(),
                 Forms\Components\Textarea::make('keterangan')
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('bukti_hasil')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('created_by')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\TextInput::make('updated_by')
-                    ->maxLength(255),
+                Forms\Components\FileUpload::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->columnSpanFull(),
+                Forms\Components\Select::make('status_permintaan')
+                    ->options(function () {
+                        $options = [
+                            '1' => 'Request',
+
+                        ];
+                        // Add admin-only option if user is admin
+                        if (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()) { // Adjust this condition as needed
+                            $options['2'] = 'Checked by Mitra';
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                            $options['6'] = 'Checked by Bank DP Taspen';
+                            $options['7'] = 'Approved by Bank DP Taspen';
+                            $options['8'] = 'Rejected by Bank DP Taspen';
+                            $options['9'] = 'On Process';
+                            $options['10'] = 'Success';
+                            $options['11'] = 'Failed';
+                        }
+
+                        if (auth()->user()->isStaffBankDPTaspen()) {
+
+                            $options['6'] = 'Checked by Bank DP Taspen';
+                            $options['9'] = 'On Process';
+                            $options['10'] = 'Success';
+                            $options['11'] = 'Failed';
+                        }
+
+                        if (auth()->user()->isApprovalBankDPTaspen()) {
+                            $options['7'] = 'Approved by Bank DP Taspen';
+                            $options['8'] = 'Rejected by Bank DP Taspen';
+                        }
+
+                        if (auth()->user()->isApprovalMitraPusat()) {
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                        }
+
+
+                        return $options;
+                    })
+                    ->default('1')
+                    ->columnSpanFull(),
+
             ]);
     }
 
@@ -72,16 +126,14 @@ class OpenFlaggingTifResource extends Resource
                 Tables\Columns\TextColumn::make('tanggal_lahir')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('sk_lulus')
+                Tables\Columns\TextColumn::make('sk_lunas')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('mitraMaster.biaya_checking')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status_permintaan'),
                 Tables\Columns\TextColumn::make('bukti_hasil')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('updated_by')
-                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
@@ -130,9 +182,33 @@ class OpenFlaggingTifResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = auth()->user();
+
+        if ($user->isAdmin() || $user->isSuperAdmin()) {
+            return $query;
+        }
+
+        // For approval mitra pusat (role 4), show all data from their mitra's branches
+        if ($user->roles == '4') {
+            return $query->whereHas('user', function ($q) use ($user) {
+                $q->where('mitra_id', $user->mitra_id);
+            });
+        }
+
+        // For other roles (approval cabang/staff), show only their branch data
+        return $query->where('created_by', auth()->id())
+            ->orWhereHas('user', function ($q) use ($user) {
+                $q->where('mitra_cabang_id', $user->mitra_cabang_id);
+            });
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
     }
 }

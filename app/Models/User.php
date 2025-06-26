@@ -3,15 +3,19 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Foundation\Auth\User as Authenticatable;
+
+use Filament\Panel;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Notifications\CustomResetPasswordNotification;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, CanResetPassword;
 
     /**
      * The attributes that are mass assignable.
@@ -22,8 +26,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'email_verified_at',
         'roles',
         'mitra_id',
+        'mitra_cabang_id'
     ];
 
     /**
@@ -50,18 +56,50 @@ class User extends Authenticatable
     }
 
 
-
+    public function isSuperAdmin(): bool
+    {
+        return $this->roles === '0';
+    }
     public function isAdmin(): bool
     {
         return $this->roles === '1';
     }
 
-    public function isSuperAdmin(): bool
+    public function isApprovalBankDPTaspen(): bool
     {
-        return $this->roles === '0';
+        return $this->roles === '2';
     }
+    public function isStaffBankDPTaspen(): bool
+    {
+        return $this->roles === '3';
+    }
+    public function isApprovalMitraPusat(): bool
+    {
+        return $this->roles === '4';
+    }
+    public function isApprovalMitraCabang(): bool
+    {
+        return $this->roles === '5';
+    }
+    public function isStaffMitraPusat(): bool
+    {
+        return $this->roles === '6';
+    }
+    public function isStaffMitraCabang(): bool
+    {
+        return $this->roles === '7';
+    }
+
+
+
+
     public function mitraMaster()
     {
         return $this->belongsTo(MitraMaster::class, 'mitra_id');
+    }
+
+    public function mitraCabang()
+    {
+        return $this->belongsTo(MitraCabangMaster::class, 'mitra_cabang_id');
     }
 }

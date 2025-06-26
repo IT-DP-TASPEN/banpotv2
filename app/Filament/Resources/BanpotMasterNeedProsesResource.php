@@ -22,7 +22,7 @@ class BanpotMasterNeedProsesResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Banpot';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 11;
 
     public static function form(Form $form): Form
     {
@@ -612,9 +612,9 @@ class BanpotMasterNeedProsesResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\ForceDeleteBulkAction::make(),
+                    // Tables\Actions\RestoreBulkAction::make(),
                 ]),
             ]);
     }
@@ -630,7 +630,7 @@ class BanpotMasterNeedProsesResource extends Resource
     {
         return [
             'index' => Pages\ListBanpotMasterNeedProses::route('/'),
-            'create' => Pages\CreateBanpotMasterNeedProses::route('/create'),
+            // 'create' => Pages\CreateBanpotMasterNeedProses::route('/create'),
             'view' => Pages\ViewBanpotMasterNeedProses::route('/{record}'),
             'edit' => Pages\EditBanpotMasterNeedProses::route('/{record}/edit'),
         ];

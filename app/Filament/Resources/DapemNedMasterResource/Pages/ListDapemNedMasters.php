@@ -28,7 +28,7 @@ class ListDapemNedMasters extends ListRecords
                     FileUpload::make('del_file')
                         ->label('File DEL')
                         ->required()
-                        ->acceptedFileTypes([])
+                        // ->acceptedFileTypes([])
                         ->preserveFilenames()
                         ->disk('local')
                         ->directory('private/uploads'),
@@ -50,7 +50,7 @@ class ListDapemNedMasters extends ListRecords
                     }
 
                     $csv = Reader::createFromPath($newFullPath, 'r');
-                    $csv->setDelimiter(';');
+                    $csv->setDelimiter(',');
 
                     $headers = [
                         'notas',

@@ -1,217 +1,123 @@
-@php
-@endphp
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Formulir Pembukaan Rekening</title>
     <style>
         @page {
-            size: 21.5cm 11cm;
-            margin: 0.5cm;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 4fr 1fr 15fr;
-            /* grid-template-rows: 0.05 0.05 0.05 0.05; */
-            /* grid-gap: -1230px; */
-            background-color: dodgerblue;
-            /* padding: 5px; */
-            margin-top: 2px;
-            padding-top: 4px;
-            padding-left: 69.5px;
-            margin-bottom: 10px;
-
-
-            /* Add some space between containers */
-        }
-
-        .container-isi {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            /* Four equal columns */
-            background-color: dodgerblue;
-            /* padding: 5px; */
-        }
-
-        .container-ttd {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            /* Four equal columns */
-            background-color: dodgerblue;
-            padding: 5px;
-        }
-
-        .container>div {
-            padding: 3px;
-            font-size: 12px;
-            text-align: left;
-        }
-
-        .container-isi>div {
-            padding: 2px;
-            font-size: 12px;
-            text-align: left;
-            /* Align text to the left for the first container */
-        }
-
-        .container-isi>div {
-            text-align: center;
-            /* Center text for the second container */
-        }
-
-        .nomor_bilyet {
-            padding-top: 85px;
-            display: flex;
-            /* Use flexbox */
-            justify-content: center;
-            /* Center horizontally */
-            align-items: center;
-            /* Center vertically */
-            height: 30px;
-            /* Set a height for vertical centering */
-            font-size: 12px;
-            /* Adjust font size */
-            margin-bottom: 1px;
-            /* Add some space below */
-        }
-
-        .head-isi {
-            border-bottom: 1px solid black;
-            font-size: 12px;
-            /* Adjust font size for headers */
-            font-weight: none;
-            /* Make headers bold */
-            text-align: center;
-            /* Center align headers */
-            padding: 5px;
-            /* Add padding for better spacing */
-            margin-left: 10px;
-            margin-right: 10px;
-        }
-
-        .head-isi-ttd {
-            font-size: 12px;
-            /* Adjust font size for headers */
-            font-weight: none;
-            /* Make headers bold */
-            text-align: left;
-            /* Center align headers */
-            padding: 5px;
-            /* Add padding for better spacing */
-            margin-left: 10px;
-            margin-right: 10px;
-        }
-
-        /* .head-isi-ttd-1 {
-            font-size: 12px;
-            
-            font-weight: none;
-           
-            text-align: right;
-           
-            margin-top: 20px;
-            margin-left: 10px;
-            margin-right: 10px;
-        } */
-
-        .head-isi-ttd-2 {
-            font-size: 12px;
-            /* Adjust font size for headers */
-            font-weight: none;
-            /* Make headers bold */
-            text-align: right;
-            /* Center align headers */
-            margin-top: 20px;
-            /* Add padding for better spacing */
-            margin-left: 10px;
-            margin-right: 10px;
-        }
-
-        /* .head-isi-ttd-3 {
-            font-size: 12px;
-            
-            font-weight: none;
-
-            text-align: left;
-            margin-bottom: 1px;
-            margin-top: 20px;
-            margin-left: 10px;
-            margin-right: 10px;
-        } */
-
-        .container-ttd {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            /* Mengatur seluruh konten ke kanan */
-            background-color: dodgerblue;
-            padding: 2px;
-            padding-right: 9px;
-            /* margin-right: 7px; */
-        }
-
-        .signature-group {
-            display: flex;
-            margin-top: 48px;
-            /* Jarak dari tanggal */
-        }
-
-        .signature-block {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .head-isi-ttd-1,
-        .head-isi-ttd-3 {
-            text-align: right;
+            size: 14.5cm 20.5cm;
             margin: 0;
-            padding-left: 90px;
-            font-size: 12px;
         }
 
-        .signature-position {
-            margin-top: 5px;
-            /* Mengurangi jarak antara nama dan jabatan */
+        body {
+            margin: 0;
+            padding: 0;
         }
 
+        .page-container {
+            position: relative;
+            width: 100%;
+            height: 20.5cm;
+            font-family: sans-serif;
+        }
+
+        .bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .content {
+            position: relative;
+            padding: 50px 30px 0 30px;
+            /* atas kanan bawah kiri */
+            color: #000;
+            z-index: 1;
+        }
+
+        .field {
+            margin-bottom: 4px;
+            font-size: 8pt;
+            line-height: 1.2;
+            overflow: hidden;
+        }
+
+        .label-1 {
+            float: left;
+            width: none;
+            font-weight: bold;
+        }
+
+        .label {
+            float: left;
+            width: 4cm;
+        }
+
+        .value {
+            display: block;
+            margin-left: 4.2cm;
+            word-wrap: break-word;
+            max-width: 10cm;
+        }
+
+        .field::after {
+            content: "";
+            display: block;
+            clear: both;
+        }
 
         @media print {
             body {
-                margin: 0;
-                padding: 0;
-            }
-
-            .print-button {
-                display: none;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
     <script>
         window.onload = function () {
             window.print();
-        }
-
-
+        };
     </script>
-
 </head>
 
 <body>
+    <div class="page-container">
+        <!-- Background image -->
+        <img src="{{ asset('bgimg.png') }}" alt="Background" class="bg-image" />
 
-    <div class="container">
-        <div class="nomor_bilyet">
-            <span style="font-weight: bold;">{{ $tab->permintaan_id }}</span>
-        </div>
-        <div class="head-isi">
-            <span style="font-weight: bold;">Formulir Permohonan Pembukaan Rekening</span>
+        <!-- Content -->
+        <div class="content">
+            <div class="field" style="margin-bottom: 160px; font-size: 10pt; font-weight: bold;">
+                <span class="label-1">TU No</span>
+                <span class="value-1">. {{ $tab->permintaan_id ?? '...' }}</span>
+            </div>
+            <div class="field">
+                <span class="label">CABANG</span>
+                <span class="value">: 01 : KP.Operasional</span>
+            </div>
+            <div class="field">
+                <span class="label">NOMOR REKENING</span>
+                <span class="value">: {{ $tab->rek_tabungan ?? '...' }} - 01 - Tabungan Pensiun</span>
+            </div>
+            <div class="field">
+                <span class="label">NAMA NASABAH</span>
+                <span class="value">: {{ $tab->nama_nasabah ?? '...' }}</span>
+            </div>
+            <div class="field">
+                <span class="label">ALAMAT NASABAH</span>
+                <span class="value">: {{ $tab->alamat ?? '...' }}</span>
+            </div>
+            <div class="field">
+                <span class="label">NOMOR IDENTITAS</span>
+                <span class="value">: {{ $tab->nik ?? '...' }}</span>
+            </div>
         </div>
     </div>
-
 </body>
 
 </html>

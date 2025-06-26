@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->enum('roles', ['0', '1', '2', '3', '4', '5'])->default('5'); // 0: superadmin, 1: admin, 2: pejabatdptaspen, 3: stafffptaspen, 4: pejabatmitra, 5: staffmitra
+            $table->enum('roles', ['0', '1', '2', '3', '4', '5', '6', '7'])->default('7'); // 0: superadmin, 1: admin, 2: approval dp taspen, 3: staff dp taspen, 4: approval mitra pusat, 5: approval mitra cabang, 6: staff mitra pusat 7. staff mitra cabang
             $table->rememberToken();
             $table->timestamps();
         });

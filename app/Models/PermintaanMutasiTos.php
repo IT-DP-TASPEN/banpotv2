@@ -30,7 +30,7 @@ class PermintaanMutasiTos extends Model
             $attributes['deleted_at'] = now();
             PermintaanMutasiTosDelete::create($attributes);
 
-            DB::table('flagging_mutasi_tos')
+            DB::table('permintaan_mutasi_tos')
                 ->where('id', $model->id)
                 ->delete();
         });
@@ -38,7 +38,14 @@ class PermintaanMutasiTos extends Model
 
     public function mitraMaster()
     {
-        return $this->belongsTo(MitraMaster::class, 'mitra_id');
+        return $this->hasOneThrough(
+            ParameterBiaya::class,  // Target model
+            User::class,                // Intermediate model
+            'id',                       // FK di User table yang menghubungkan ke BanpotMaster
+            'mitra_id',                 // FK di ParameterFeeBanpot yang menghubungkan ke User
+            'created_by',               // Local key di BanpotMaster
+            'mitra_id'                  // Local key di User yang menghubungkan ke ParameterFeeBanpot
+        );
     }
     public function creator()
     {
@@ -53,5 +60,13 @@ class PermintaanMutasiTos extends Model
     public function deleter()
     {
         return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(
+            User::class,
+            'created_by'
+        );
     }
 }

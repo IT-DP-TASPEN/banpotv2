@@ -35,11 +35,6 @@ class OpenFlaggingTif extends Model
                 ->delete();
         });
     }
-
-    public function mitraMaster()
-    {
-        return $this->belongsTo(MitraMaster::class, 'mitra_id');
-    }
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -53,5 +48,25 @@ class OpenFlaggingTif extends Model
     public function deleter()
     {
         return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    public function mitraMaster()
+    {
+        return $this->hasOneThrough(
+            ParameterBiaya::class,  // Target model
+            User::class,                // Intermediate model
+            'id',                       // FK di User table yang menghubungkan ke BanpotMaster
+            'mitra_id',                 // FK di ParameterFeeBanpot yang menghubungkan ke User
+            'created_by',               // Local key di BanpotMaster
+            'mitra_id'                  // Local key di User yang menghubungkan ke ParameterFeeBanpot
+        );
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(
+            User::class,
+            'created_by'
+        );
     }
 }

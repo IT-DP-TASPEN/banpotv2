@@ -9,6 +9,7 @@ class BanpotMasterNeedApproveMitra extends Model
 {
     use SoftDeletes;
     protected $table = 'banpot_masters';
+
     protected $guarded = [];
 
     protected static function booted()

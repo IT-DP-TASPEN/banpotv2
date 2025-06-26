@@ -18,9 +18,10 @@ class PembukaanRekeningBaruResource extends Resource
 {
     protected static ?string $model = PembukaanRekeningBaru::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'Permintaan';
-    protected static ?int $navigationSort = 1;
+    protected static ?string $navigationIcon = 'heroicon-o-document-arrow-up';
+    protected static ?string $navigationLabel = 'Request New Saving Account';
+    protected static ?string $navigationGroup = 'Saving Account';
+    protected static ?int $navigationSort = 12;
 
     public static function form(Form $form): Form
     {
@@ -46,62 +47,248 @@ class PembukaanRekeningBaruResource extends Resource
                     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('wilayah')
                     ->required(),
-                Forms\Components\TextInput::make('nama_nasabah')
-                    ->required(),
                 Forms\Components\Select::make('jenis_akun')
                     ->options([
-                        '1' => 'Perorangan',
-                        '2' => 'Badan'
+                        'orang' => 'Perorangan',
+                        'badan' => 'Badan'
                     ])
-                    ->default('1')
+                    ->default('orang')
                     ->live()
                     ->reactive()
                     ->afterStateUpdated(function (callable $set) {
                         // Reset the 'nik' field when 'jenis_akun' changes
                         $set('nik', null);
                     }),
+                Forms\Components\TextInput::make('nama_nasabah')
+                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? 'Nama Nasabah' : 'Nama Instansi')
+                    ->required(),
+
                 Forms\Components\TextInput::make('notas')
                     ->maxLength(255)
                     ->required()
-                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === '1'),
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang'),
                 Forms\Components\TextInput::make('nik')
-                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === '1' ? 'NIK' : 'Nomor NPWP')
+                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? 'NIK' : 'Nomor NPWP')
                     ->numeric()
-                    ->rules(fn(Forms\Get $get) => $get('jenis_akun') === '1' ? ['digits:16'] : [])
+                    ->rules(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? ['digits:16'] : [])
                     ->live(),
                 Forms\Components\Select::make('pendidikan')
                     ->options([
-                        'None' => 'None',
-                        'TK' => 'TK',
-                        'SD' => 'SD',
-                        'SMP' => 'SMP',
-                        'SMA' => 'SMA',
-                        'SMK' => 'SMK',
-                        'D1' => 'D1',
-                        'D2' => 'D2',
-                        'D3' => 'D3',
-                        'D4' => 'D4',
-                        'S1' => 'S1',
-                        'S2' => 'S2',
-                        'S3' => 'S3',
+                        '0100' => 'Tanpa Gelar',
+                        '0101' => 'Diploma I',
+                        '0102' => 'Diploma II',
+                        '0103' => 'Diploma III (D3)',
+                        '0104' => 'Sarjana (S1)',
+                        '0105' => 'Pasca Sarjana (S2)',
+                        '0106' => 'Doktoral (S3)',
+                        '0199' => 'Lainnya'
+                    ])
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang'),
+                Forms\Components\Select::make('sex')
+                    ->label('Jenis Kelamin')
+                    ->options([
+                        '1' => 'Laki - Laki',
+                        '2' => 'Perempuan',
                     ]),
+                Forms\Components\Select::make('agama')
+                    ->options([
+                        '1' => 'Islam',
+                        '2' => 'Kristen',
+                        '3'  => 'Katolik',
+                        '4'  => 'Hindu',
+                        '5'  => 'Budha',
+                        '6'  => 'Konghucu',
+                        '7'  => 'Lainnya',
+                    ]),
+
                 Forms\Components\TextInput::make('tempat_lahir')
-                    ->maxLength(20),
+                    ->maxLength(20)
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang'),
                 Forms\Components\DatePicker::make('tanggal_lahir')
-                    ->default(now()),
-
-
+                    ->default(now())
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang'),
                 Forms\Components\TextInput::make('no_handphone')
+                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? 'Nomor Handphone' : 'Nomor Kantor')
                     ->tel()
                     ->maxLength(255)
                     ->required(),
                 Forms\Components\TextInput::make('kontak_darurat')
+                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? 'Kontak Darurat' : 'Nomor Alternatif')
                     ->maxLength(255)
                     ->required(),
+                Forms\Components\Select::make('dati2')
+                    ->label('Kota/Kabupaten')
+                    ->searchable()
+                    ->options([
+                        '0102' => 'Bekasi, Kab.',
+                        '0103' => 'Purwakarta, Kab.',
+                        '0106' => 'Karawang, Kab.',
+                        '0108' => 'Bogor, Kab.',
+                        '0109' => 'Sukabumi, Kab.',
+                        '0110' => 'Cianjur, Kab.',
+                        '0111' => 'Bandung, Kab.',
+                        '0112' => 'Sumedang, Kab.',
+                        '0113' => 'Tasikmalaya, Kab.',
+                        '0114' => 'Garut, Kab.',
+                        '0115' => 'Ciamis, Kab.',
+                        '0116' => 'Cirebon, Kab.',
+                        '0117' => 'Kuningan, Kab.',
+                        '0118' => 'Indramayu, Kab.',
+                        '0119' => 'Majalengka, Kab.',
+                        '0121' => 'Subang, Kab.',
+                        '0122' => 'Bandung Barat, Kab.',
+                        '0123' => 'Pangandaran, Kab.',
+                        '0180' => 'Banjar, Kota.',
+                        '0188' => 'Prov. Jawa Barat, Kab./Kota Lainnya.',
+                        '0191' => 'Bandung, Kota.',
+                        '0192' => 'Bogor, Kota.',
+                        '0193' => 'Sukabumi, Kota.',
+                        '0194' => 'Cirebon, Kota.',
+                        '0195' => 'Tasikmalaya, Kota.',
+                        '0196' => 'Cimahi, Kota.',
+                        '0197' => 'Depok, Kota.',
+                        '0198' => 'Bekasi, Kota.',
+                        '0201' => 'Lebak, Kab.',
+                        '0202' => 'Pandeglang, Kab.',
+                        '0203' => 'Serang, Kab.',
+                        '0204' => 'Tangerang, Kab.',
+                        '0288' => 'Prov. Banten, Kab./Kota Lainnya.',
+                        '0291' => 'Cilegon, Kota.',
+                        '0292' => 'Tangerang, Kota.',
+                        '0293' => 'Serang, Kota.',
+                        '0294' => 'Tanggerang Selatan',
+                        '0391' => 'Jakarta Pusat, Wil. Kota',
+                        '0392' => 'Jakarta Utara ., Wil. Kota',
+                        '0393' => 'Jakarta Barat, Wil. Kota',
+                        '0394' => 'Jakarta Selatan, Wil. Kota',
+                        '0395' => 'Jakarta Timur, Wil. Kota',
+                        '0396' => 'Kepulauan Seribu, Wilayah',
+                        '0501' => 'Bantul, Kab.',
+                        '0502' => 'Sleman, Kab.',
+                        '0503' => 'Gunung Kidul, Kab.',
+                        '0504' => 'Kulon Progo, Kab.',
+                        '0588' => 'DI Yogyakarta, Kab./Kota Lainnya.',
+                        '0591' => 'Yogyakarta, Kota.',
+                        '0901' => 'Semarang, Kab.',
+                        '0902' => 'Kendal, Kab.',
+                        '0903' => 'Demak, Kab.',
+                        '0904' => 'Grobogan, Kab.',
+                        '0905' => 'Pekalongan, Kab.',
+                        '0906' => 'Tegal, Kab.',
+                        '0907' => 'Brebes, Kab.',
+                        '0908' => 'Pati, Kab.',
+                        '0909' => 'Kudus, Kab.',
+                        '0910' => 'Pemalang, Kab.',
+                        '0911' => 'Jepara, Kab.',
+                        '0912' => 'Rembang, Kab.',
+                        '0913' => 'Blora, Kab.',
+                        '0914' => 'Banyumas, Kab.',
+                        '0915' => 'Cilacap, Kab.',
+                        '0916' => 'Purbalingga, Kab.',
+                        '0917' => 'Banjarnegara, Kab.',
+                        '0918' => 'Magelang, Kab.',
+                        '0919' => 'Temanggung, Kab.',
+                        '0920' => 'Wonosobo, Kab.',
+                        '0921' => 'Purworejo, Kab.',
+                        '0922' => 'Kebumen, Kab.',
+                        '0923' => 'Klaten, Kab.',
+                        '0924' => 'Boyolali, Kab.',
+                        '0925' => 'Sragen, Kab.',
+                        '0926' => 'Sukoharjo, Kab.',
+                        '0927' => 'Karanganyar, Kab.',
+                        '0928' => 'Wonogiri, Kab.',
+                        '0929' => 'Batang, Kab.',
+                        '0988' => 'Prov. Jawa Tengah, Kab./Kota Lainnya.',
+                        '0991' => 'Semarang, Kota.',
+                        '0992' => 'Salatiga, Kota.',
+                        '0993' => 'Pekalongan, Kota.',
+                        '0994' => 'Tegal, Kota.',
+                        '0995' => 'Magelang, Kota.',
+                        '0996' => 'Surakarta, Kota.',
+                        '1201' => 'Gresik, Kab.',
+                        '1202' => 'Sidoarjo, Kab.',
+                        '1203' => 'Mojokerto, Kab.',
+                        '1204' => 'Jombang, Kab.',
+                        '1205' => 'Sampang, Kab.',
+                        '1206' => 'Pamekasan, Kab.',
+                        '1207' => 'Sumenep, Kab.',
+                        '1208' => 'Bangkalan, Kab.',
+                        '1209' => 'Bondowoso, Kab.',
+                        '1211' => 'Banyuwangi, Kab.',
+                        '1212' => 'Jember, Kab.',
+                        '1213' => 'Malang, Kab.',
+                        '1214' => 'Pasuruan, Kab.',
+                        '1215' => 'Probolinggo, Kab.',
+                        '1216' => 'Lumajang, Kab.',
+                        '1217' => 'Kediri, Kab.',
+                        '1218' => 'Nganjuk, Kab.',
+                        '1219' => 'Tulungagung, Kab.',
+                        '1220' => 'Trenggalek, Kab.',
+                        '1221' => 'Blitar, Kab.',
+                        '1222' => 'Madiun, Kab.',
+                        '1223' => 'Ngawi, Kab.',
+                        '1224' => 'Magetan, Kab.',
+                        '1225' => 'Ponorogo, Kab.',
+                        '1226' => 'Pacitan, Kab.',
+                        '1227' => 'Bojonegoro, Kab.',
+                        '1228' => 'Tuban, Kab.',
+                        '1229' => 'Lamongan, Kab.',
+                        '1230' => 'Situbondo, Kab.',
+                        '1271' => 'Batu, Kota.',
+                        '1288' => 'Prov. Jawa Timur, Kab./Kota Lainnya.',
+                        '1291' => 'Surabaya, Kota.',
+                        '1292' => 'Mojokerto, Kota.',
+                        '1293' => 'Malang, Kota.',
+                        '1294' => 'Pasuruan, Kota.',
+                        '1295' => 'Probolinggo, Kota.',
+                        '1296' => 'Blitar, Kota.',
+                        '1297' => 'Kediri, Kota.',
+                        '1298' => 'Madiun, Kota.',
+                        '9999' => 'Di Luar Indonesia',
+                    ])
+                    ->required(),
+                Forms\Components\TextInput::make('kecamatan')
+                    ->required(),
+                Forms\Components\TextInput::make('kelurahan')
+                    ->required(),
+                Forms\Components\TextInput::make('kode_pos')
+                    ->required(),
                 Forms\Components\Textarea::make('alamat')
-                    ->columnSpanFull(),
+                    ->label('Alamat Lengkap')
+                    ->columnSpanFull()
+                    ->required(),
                 Forms\Components\TextInput::make('nama_ibu_kandung')
                     ->maxLength(255)
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang')
+                    ->required(),
+                Forms\Components\TextInput::make('nama_ahli_waris')
+                    ->maxLength(255)
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang')
+                    ->required(),
+                Forms\Components\Select::make('hub_ahli_waris')
+                    ->options([
+                        '01' => 'SUAMI/ISTRI',
+                        '02' => 'BAPAK/IBU KANDUNG',
+                        '03' => 'BAPAK/IBU MERTUA',
+                        '04' => 'BAPAK/IBU TIRI',
+                        '05' => 'BAPAK/IBU ANGKAT',
+                        '06' => 'KAKEK/NENEK',
+                        '07' => 'PAMAN/BIBI',
+                        '08' => 'SAUDARA KANDUNG',
+                        '09' => 'SAUDARA IPAR',
+                        '10' => 'SAUDARA TIRI',
+                        '11' => 'SAUDARA ANGKAT',
+                        '12' => 'SEPUPU KANDUNG',
+                        '13' => 'SEPUPU IPAR',
+                        '14' => 'ANAK KANDUNG',
+                        '15' => 'ANAK TIRI',
+                        '16' => 'ANAK ANGKAT',
+                        '17' => 'KEPONAKAN KANDUNG',
+                        '18' => 'KEPONAKAN IPAR',
+                        '19' => 'CUCU',
+                        '20' => 'KERABAT LAINNYA',
+                        '99' => 'BUKAN KERABAT',
+                    ])
                     ->required(),
                 Forms\Components\Select::make('status_nikah')
                     ->options([
@@ -110,7 +297,8 @@ class PembukaanRekeningBaruResource extends Resource
                         '3' => 'Cerai hidup',
                         '4' => 'Cerai mati'
                     ])
-                    ->live(),
+                    ->live()
+                    ->visible(fn(Forms\Get $get) => $get('jenis_akun') === 'orang'),
                 Forms\Components\TextInput::make('nama_pasangan')
                     ->maxLength(255)
                     ->visible(fn(Forms\Get $get) => $get('status_nikah') === '2'),
@@ -123,6 +311,7 @@ class PembukaanRekeningBaruResource extends Resource
 
 
                 Forms\Components\FileUpload::make('form_buka_tab')
+                    ->label(fn(Forms\Get $get) => $get('jenis_akun') === 'orang' ? 'Scan KTP KK Formulir Pembukaan Rekening' : 'Scan NPWP')
                     ->columnSpanFull()
                     ->previewable(true)
                     ->openable()
@@ -131,12 +320,48 @@ class PembukaanRekeningBaruResource extends Resource
                 Forms\Components\Textarea::make('keterangan')
                     ->columnSpanFull(),
                 Forms\Components\Select::make('status_permintaan')
-                    ->options([
-                        '1' => 'requested',
-                        '2' => 'on proses',
-                        '3' => 'cancelled',
-                    ])
-                    ->default(1)
+                    ->options(function () {
+                        $options = [
+                            '1' => 'Request',
+
+                        ];
+                        // Add admin-only option if user is admin
+                        if (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()) { // Adjust this condition as needed
+                            $options['2'] = 'Checked by Mitra';
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                            $options['6'] = 'Checked by Bank DP Taspen';
+                            $options['7'] = 'Approved by Bank DP Taspen';
+                            $options['8'] = 'Rejected by Bank DP Taspen';
+                            $options['9'] = 'On Process';
+                            $options['10'] = 'Success';
+                            $options['11'] = 'Failed';
+                        }
+
+                        if (auth()->user()->isStaffBankDPTaspen()) {
+
+                            $options['6'] = 'Checked by Bank DP Taspen';
+                            $options['9'] = 'On Process';
+                            $options['10'] = 'Success';
+                            $options['11'] = 'Failed';
+                        }
+
+                        if (auth()->user()->isApprovalBankDPTaspen()) {
+                            $options['7'] = 'Approved by Bank DP Taspen';
+                            $options['8'] = 'Rejected by Bank DP Taspen';
+                        }
+
+                        if (auth()->user()->isApprovalMitraPusat()) {
+                            $options['3'] = 'Approved by Mitra';
+                            $options['4'] = 'Rejected by Mitra';
+                            $options['5'] = 'Canceled by Mitra';
+                        }
+
+
+                        return $options;
+                    })
+                    ->default('1')
                     ->columnSpanFull(),
                 Forms\Components\TextInput::make('rek_tabungan')
                     ->maxLength(255)
@@ -170,16 +395,32 @@ class PembukaanRekeningBaruResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('no_handphone')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('status_nikah'),
-                Tables\Columns\TextColumn::make('nik_pasangan')
+                Tables\Columns\TextColumn::make('status_nikah')
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        '1' => 'Belum menikah',
+                        '2' => 'Sudah menikah',
+                        '3' => 'Cerai hidup',
+                        '4' => 'Cerai mati',
+                        default => 'Tidak diketahui',
+                    })
                     ->searchable(),
+                Tables\Columns\TextColumn::make('nik_pasangan')
+                    ->hidden(),
                 Tables\Columns\TextColumn::make('kontak_darurat')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('form_buka_tab')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('status_permintaan'),
                 Tables\Columns\TextColumn::make('rek_tabungan')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('status_permintaan')
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        '1' => 'requested',
+                        '2' => 'on proses',
+                        '3' => 'cancelled',
+                        default => 'unknown',
+                    })
+                    ->searchable()
+                    ->badge(),
 
                 Tables\Columns\TextColumn::make('created_by')
                     ->numeric()
@@ -246,9 +487,33 @@ class PembukaanRekeningBaruResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+
+        $user = auth()->user();
+
+        if ($user->isAdmin() || $user->isSuperAdmin()) {
+            return $query;
+        }
+
+        // For approval mitra pusat (role 4), show all data from their mitra's branches
+        if ($user->roles == '4') {
+            return $query->whereHas('user', function ($q) use ($user) {
+                $q->where('mitra_id', $user->mitra_id);
+            });
+        }
+
+        // For other roles (approval cabang/staff), show only their branch data
+        return $query->where('created_by', auth()->id())
+            ->orWhereHas('user', function ($q) use ($user) {
+                $q->where('mitra_cabang_id', $user->mitra_cabang_id);
+            });
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
     }
 }
