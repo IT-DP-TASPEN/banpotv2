@@ -7,22 +7,24 @@ use Filament\Tables;
 use Filament\Forms\Form;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
-use App\Models\PembukaanRekeningBaru;
+use Illuminate\Support\Collection;
 use Filament\Support\Enums\ActionSize;
 use Illuminate\Support\Facades\Storage;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\PembukaanRekeningBaruNeedProses;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use App\Filament\Resources\PembukaanRekeningBaruResource\Pages;
-use App\Filament\Resources\PembukaanRekeningBaruResource\RelationManagers;
+use App\Filament\Resources\PembukaanRekeningBaruNeedProsesResource\Pages;
+use App\Filament\Resources\PembukaanRekeningBaruNeedProsesResource\RelationManagers;
 
-class PembukaanRekeningBaruResource extends Resource
+class PembukaanRekeningBaruNeedProsesResource extends Resource
 {
-    protected static ?string $model = PembukaanRekeningBaru::class;
+    protected static ?string $model = PembukaanRekeningBaruNeedProses::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-arrow-up';
-    protected static ?string $navigationLabel = 'Request New Saving Account';
+    protected static ?string $navigationIcon = 'heroicon-o-document-check';
+    protected static ?string $navigationLabel = 'Need Proses New Saving Account';
     protected static ?string $navigationGroup = 'Saving Account';
-    protected static ?int $navigationSort = 12;
+    protected static ?int $navigationSort = 14;
 
     public static function form(Form $form): Form
     {
@@ -495,7 +497,14 @@ class PembukaanRekeningBaruResource extends Resource
                         };
                     }),
                 Tables\Columns\TextColumn::make('keterangan')
-                    ->badge(),
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            'Sudah di daftarkan' => 'danger',
+                            default => 'secondary',
+                        };
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_by')
                     ->numeric()
                     ->hidden()
@@ -505,6 +514,7 @@ class PembukaanRekeningBaruResource extends Resource
                     ->hidden(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
+                    ->hidden()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
@@ -534,9 +544,87 @@ class PembukaanRekeningBaruResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\BulkAction::make('updatestatuspermintaan')
+                        ->label('Update Status Permintaan')
+                        ->icon('heroicon-m-pencil-square')
+                        ->form([
+                            Forms\Components\Select::make('status_permintaan')
+                                ->label('Select Status')
+                                ->options(function () {
+                                    $user = auth()->user();
+                                    if ($user->isAdmin() || $user->isSuperAdmin()) {
+                                        $options += [
+                                            '2' => 'Checked by Mitra',
+                                            '3' => 'Approved by Mitra',
+                                            '4' => 'Rejected by Mitra',
+                                            '5' => 'Canceled by Mitra',
+                                            '6' => 'Checked by Bank DP Taspen',
+                                            '7' => 'Approved by Bank DP Taspen',
+                                            '8' => 'Rejected by Bank DP Taspen',
+                                            '9' => 'On Process',
+                                            '10' => 'Success',
+                                            '11' => 'Failed',
+                                        ];
+                                    }
+
+                                    if ($user->isAdmin() || $user->isSuperAdmin()) {
+                                        $options += [
+                                            '2' => 'Checked by Mitra',
+                                            '3' => 'Approved by Mitra',
+                                            '4' => 'Rejected by Mitra',
+                                            '5' => 'Canceled by Mitra',
+                                            '6' => 'Checked by Bank DP Taspen',
+                                            '7' => 'Approved by Bank DP Taspen',
+                                            '8' => 'Rejected by Bank DP Taspen',
+                                            '9' => 'On Process',
+                                            '10' => 'Success',
+                                            '11' => 'Failed',
+                                        ];
+                                    }
+
+                                    if ($user->isStaffBankDPTaspen()) {
+                                        $options += [
+                                            '6' => 'Checked by Bank DP Taspen',
+                                            '9' => 'On Process',
+                                            '10' => 'Success',
+                                            '11' => 'Failed',
+                                        ];
+                                    }
+
+                                    if ($user->isApprovalBankDPTaspen()) {
+                                        $options += [
+                                            '7' => 'Approved by Bank DP Taspen',
+                                            '8' => 'Rejected by Bank DP Taspen',
+                                        ];
+                                    }
+
+                                    if ($user->isApprovalMitraPusat()) {
+                                        $options += [
+                                            '3' => 'Approved by Mitra',
+                                            '4' => 'Rejected by Mitra',
+                                            '5' => 'Canceled by Mitra',
+                                        ];
+                                    }
+
+                                    return $options;
+                                })
+                                ->required(),
+                        ])
+                        ->action(function (array $data, Collection $records) {
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'status_permintaan' => $data['status_permintaan'],
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->title('Status updated successfully!')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Update Status')
+                        ->modalSubheading('Select a new status for the selected records.')
                 ]),
             ]);
     }
@@ -551,43 +639,24 @@ class PembukaanRekeningBaruResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPembukaanRekeningBarus::route('/'),
-            'create' => Pages\CreatePembukaanRekeningBaru::route('/create'),
-            'view' => Pages\ViewPembukaanRekeningBaru::route('/{record}'),
-            'edit' => Pages\EditPembukaanRekeningBaru::route('/{record}/edit'),
+            'index' => Pages\ListPembukaanRekeningBaruNeedProses::route('/'),
+            'create' => Pages\CreatePembukaanRekeningBaruNeedProses::route('/create'),
+            'view' => Pages\ViewPembukaanRekeningBaruNeedProses::route('/{record}'),
+            'edit' => Pages\EditPembukaanRekeningBaruNeedProses::route('/{record}/edit'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
-        $user = auth()->user();
         return parent::getEloquentQuery()
-            ->when(
-                $user->roles == '7',
-                fn($query) => $query
-                    ->where('created_by', $user->id)
-                    ->whereHas('creator', function ($q) use ($user) {
-                        $q->where('mitra_id', $user->mitra_id)
-                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
-                    })
-            )
-            ->when(
-                $user->roles == '5',
-                fn($query) => $query
-                    ->whereHas('creator', function ($q) use ($user) {
-                        $q->where('roles', '7')
-                            ->where('mitra_id', $user->mitra_id)
-                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
-                    })
-            )
-            ->when(
-                !in_array($user->roles, ['5', '7']),
-                fn($query) => $query // Roles lain tanpa filter
-            );
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ])
+            ->whereIn('status_permintaan', [3, 4, 5, 6, 7, 8, 9, 10, 11]);
     }
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isApprovalBankDPTaspen();
     }
 }

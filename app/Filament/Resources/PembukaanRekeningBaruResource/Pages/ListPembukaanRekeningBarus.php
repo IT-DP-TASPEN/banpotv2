@@ -45,7 +45,8 @@ class ListPembukaanRekeningBarus extends ListRecords
                     ->action(fn() => Excel::download(new PembukaanRekeningBaruTabunganPelengkapExport, 'tabungan_pelengkap.xlsx')),
             ])
                 ->label('Format Bulk pembuatan rekening')
-                ->button(),
+                ->button()
+                ->visible(fn() => auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isApprovalBankDPTaspen()),
         ];
     }
 }

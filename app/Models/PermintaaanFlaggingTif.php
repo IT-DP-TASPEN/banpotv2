@@ -17,6 +17,7 @@ class PermintaaanFlaggingTif extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
+            $model->permintaan_id = self::generatePermintaanFlaggingTifId();
         });
 
         // Set updated_by saat mengupdate data
@@ -68,5 +69,20 @@ class PermintaaanFlaggingTif extends Model
             User::class,
             'created_by'
         );
+    }
+
+    public static function generatePermintaanFlaggingTifId(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('permintaaan_flagging_tifs')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('permintaaan_flagging_tif_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('FT', '', $latestMaster->permintaan_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('FT', '', $latestCompleted->permintaan_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'FT' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
 }

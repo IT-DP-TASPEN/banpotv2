@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PembukaanRekeningBaruApprovalMitra extends Model
+class PembukaanRekeningBaruNeedProses extends Model
 {
     protected $table = 'pembukaan_rekening_barus';
     use SoftDeletes;
@@ -34,9 +34,6 @@ class PembukaanRekeningBaruApprovalMitra extends Model
 
 
         static::updated(function ($model) {
-            if ($model->status_permintaan == '10') {
-                $model->saveQuietly();
-            }
             // Tentukan target notas yg akan dipakai untuk cek dan simpan
             $targetNotas = $model->getTargetNotas();
 

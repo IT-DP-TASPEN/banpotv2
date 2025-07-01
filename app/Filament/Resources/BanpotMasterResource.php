@@ -11,11 +11,13 @@ use Filament\Resources\Resource;
 use App\Models\ParameterFeeBanpot;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use App\Models\IdentitasMitraMaster;
+use App\Models\BanpotMasterCompleted;
 use Filament\Forms\Components\Hidden;
+
 use function Laravel\Prompts\warning;
 use GrahamCampbell\ResultType\Success;
-
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Widgets\BanpotStatusWidget;
@@ -38,24 +40,27 @@ class BanpotMasterResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('banpot_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = BanpotMaster::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('banpot_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil banpot_id terakhir dari banpot_masters
+                //         $latestMaster = BanpotMaster::orderBy('id', 'desc')->first();
+                //         $latestCompleted = BanpotMasterCompleted::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('B', '', $latest->banpot_id) + 1 :
-                            1;
+                //         $lastNumberMaster = $latestMaster ? (int) str_replace('B', '', $latestMaster->banpot_id) : 0;
+                //         $lastNumberCompleted = $latestCompleted ? (int) str_replace('B', '', $latestCompleted->banpot_id) : 0;
 
-                        return 'B' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         // Ambil nomor urut terbesar dari kedua table
+                //         $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+                //         return 'B' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+                //     })
+
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('nama_nasabah')
                     ->maxLength(255),
                 Forms\Components\TextInput::make('rek_tabungan')
@@ -306,13 +311,8 @@ class BanpotMasterResource extends Resource
                 Tables\Columns\TextColumn::make('rek_transfer')
                     ->hidden()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('mitraMaster.jenis_fee')
-                    ->visible(false)
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('mitraMaster.fee_banpot')
-                    ->visible(false)
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('pembayaran')
+                    ->label('Fee Banpot')
                     ->getStateUsing(function ($record) {
                         $jenisFee = $record->mitraMaster->jenis_fee ?? 0;
                         $gajiPensiun = $record->gaji_pensiun ?? 0;
@@ -353,12 +353,6 @@ class BanpotMasterResource extends Resource
                             ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                             ->numeric()
                     ]),
-                Tables\Columns\TextColumn::make('identityMaster.rek_tabungan')
-                    ->label('Rek Tabungan')
-                    ->badge()
-                    ->searchable()
-                    ->sortable()
-                    ->hidden(),
                 Tables\Columns\IconColumn::make('rek_tabungan_validasi')
                     ->label('Validasi Rek Tabungan')
                     ->boolean()
@@ -409,7 +403,6 @@ class BanpotMasterResource extends Resource
                     }),
                 Tables\Columns\IconColumn::make('dapem_validasi')
                     ->label('Validasi Dapem')
-                    ->label('Validasi Dapem')
                     ->boolean()
                     ->color(function ($state) {
                         return match ($state) {
@@ -439,7 +432,7 @@ class BanpotMasterResource extends Resource
                         return $record->notas == $dapem->notas;
                     }),
                 Tables\Columns\IconColumn::make('kode_otentifikasi')
-                    ->label('Validasi Oten')
+                    ->label('Validasi Otentifikasi')
                     ->boolean()
                     ->color(fn($state) => match ($state) {
                         true => 'success',
@@ -463,12 +456,8 @@ class BanpotMasterResource extends Resource
 
                         return in_array($oten->kode_otentifikasi, [11, 13, 14, 15]);
                     }),
-
-
-
-
                 Tables\Columns\IconColumn::make('enrollment_status')
-                    ->label('Validasi Oten')
+                    ->label('Validasi Enrollment')
                     ->boolean()
                     ->color(fn($state) => match ($state) {
                         true => 'success',
@@ -614,9 +603,35 @@ class BanpotMasterResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
 
             ])
+            // Tables\Filters\SelectFilter::make('status_banpot')
+            //     ->label('Status Banpot')
+            //     ->options([
+            //         '1' => 'Request',
+            //         '2' => 'Checked by Mitra',
+            //         '3' => 'Approved by Mitra',
+            //         '4' => 'Rejected by Mitra',
+            //         '5' => 'Canceled by Mitra',
+            //         '6' => 'Checked by Bank DP Taspen',
+            //         '7' => 'Approved by Bank DP Taspen',
+            //         '8' => 'Rejected by Bank DP Taspen',
+            //         '9' => 'On Process',
+            //         '10' => 'Success',
+            //         '11' => 'Failed',
+            //     ])
+            //     ->multiple(),
+
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
@@ -624,8 +639,6 @@ class BanpotMasterResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
                     Tables\Actions\BulkAction::make('updatestatusbanpot')
                         ->label('Update Status Banpot')
                         ->icon('heroicon-m-pencil-square')
@@ -637,7 +650,6 @@ class BanpotMasterResource extends Resource
                                     $options = [
                                         '1' => 'Request',
                                     ];
-
                                     if ($user->isAdmin() || $user->isSuperAdmin()) {
                                         $options += [
                                             '2' => 'Checked by Mitra',
@@ -652,7 +664,6 @@ class BanpotMasterResource extends Resource
                                             '11' => 'Failed',
                                         ];
                                     }
-
                                     if ($user->isStaffBankDPTaspen()) {
                                         $options += [
                                             '6' => 'Checked by Bank DP Taspen',
@@ -676,7 +687,6 @@ class BanpotMasterResource extends Resource
                                             '5' => 'Canceled by Mitra',
                                         ];
                                     }
-
                                     return $options;
                                 })
                                 ->required(),
@@ -687,7 +697,6 @@ class BanpotMasterResource extends Resource
                                     'status_banpot' => $data['status_banpot'],
                                 ]);
                             }
-
                             Notification::make()
                                 ->title('Status updated successfully!')
                                 ->success()
@@ -702,9 +711,7 @@ class BanpotMasterResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
@@ -720,7 +727,6 @@ class BanpotMasterResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-
         return parent::getEloquentQuery()
             ->when(
                 $user->roles == '6',
@@ -744,5 +750,10 @@ class BanpotMasterResource extends Resource
                 !in_array($user->roles, ['4', '6']),
                 fn($query) => $query // Roles lain tanpa filter
             );
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isApprovalBankDPTaspen() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isStaffMitraPusat();
     }
 }

@@ -17,11 +17,13 @@ class PembukaanRekeningBaru extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
-            if (empty($model->rek_tabungan)) {
-                $latest = PembukaanRekeningBaru::orderBy('id', 'desc')->first();
-                $sequence = $latest ? (int) str_replace('01.107.', '', $latest->rek_tabungan) + 1 : 1;
-                $model->rek_tabungan = '01.107.' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-            }
+            $model->permintaan_id = self::generatePermintaanId();
+            $model->rek_tabungan = self::generateRekTabungan();
+            // if (empty($model->rek_tabungan)) {
+            //     $latest = PembukaanRekeningBaru::orderBy('id', 'desc')->first();
+            //     $sequence = $latest ? (int) str_replace('01.107.', '', $latest->rek_tabungan) + 1 : 1;
+            //     $model->rek_tabungan = '01.107.' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+            // }
         });
 
         // Set updated_by saat mengupdate data
@@ -43,20 +45,23 @@ class PembukaanRekeningBaru extends Model
                 // 3. Jika notas sudah ada:
                 // - Update status menjadi 'gagal'
                 // - Tidak membuat record baru
-                $model->status_permintaan = 11; // Sesuaikan dengan nilai status gagal Anda
+                $model->status_permintaan = 11; // Status gagal
                 $model->saveQuietly();
             } else {
                 // 4. Jika notas belum ada, buat record baru
                 $latest = IdentitasMitraMaster::orderBy('id', 'desc')->first();
-                $sequence = $latest ?
-                    (int) str_replace('IM', '', $latest->identity_id) + 1 :
-                    1;
+                $sequence = $latest
+                    ? (int) str_replace('IM', '', $latest->identity_id) + 1
+                    : 1;
+
                 $newIdentityId = 'IM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
                 IdentitasMitraMaster::create([
                     'identity_id' => $newIdentityId,
                     'mitra_id' => $model->creator->mitra_id,
-                    'notas' => $model->notas,
+                    'notas' => $model->jenis_akun === 'badan'
+                        ? preg_replace('/[^0-9]/', '', $model->npwp) // Ambil dari npwp jika badan
+                        : $model->notas,
                     'nama_nasabah' => $model->nama_nasabah,
                     'rek_tabungan' => $model->rek_tabungan,
                     'rek_replace' => !empty($model->rek_tabungan) ? preg_replace('/[^a-zA-Z0-9]/', '', $model->rek_tabungan) : null,
@@ -65,6 +70,7 @@ class PembukaanRekeningBaru extends Model
                 ]);
             }
         });
+
 
 
         static::deleting(function ($model) {
@@ -111,5 +117,35 @@ class PembukaanRekeningBaru extends Model
             User::class,
             'created_by'
         );
+    }
+
+    public static function generatePermintaanId(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('pembukaan_rekening_barus')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('pembukaan_rekening_baru_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('P', '', $latestMaster->permintaan_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('P', '', $latestCompleted->permintaan_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'P' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
+    }
+
+    public static function generateRekTabungan(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('pembukaan_rekening_barus')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('pembukaan_rekening_baru_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('01.107.', '', $latestMaster->rek_tabungan) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('01.107.', '', $latestCompleted->rek_tabungan) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return '01.107.' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+        });
     }
 }

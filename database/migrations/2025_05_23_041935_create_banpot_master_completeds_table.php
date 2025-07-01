@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('banpot_masters', function (Blueprint $table) {
+        Schema::create('banpot_master_completeds', function (Blueprint $table) {
             $table->id();
             $table->string('banpot_id')->unique();
             $table->string('rek_tabungan')->nullable();
@@ -32,6 +32,13 @@ return new class extends Migration
             $table->string('rek_transfer')->nullable();
             $table->enum('status_banpot', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']); //1.request, 2.checked by mitra, 3.approved by mitra, 4.rejected by mitra, 5. canceled by mitra ,6.checked by bank dp taspen, 7.approved by bank dp taspen, 8.rejected by bank dp taspen , 9.On Process, 10. Success, 11. Failed
             $table->text('keterangan')->nullable();
+            $table->decimal('fee_banpot', 20, 2)->nullable();
+            $table->boolean('rek_tabungan_valid')->nullable();
+            $table->boolean('notas_valid')->nullable();
+            $table->boolean('dapem_valid')->nullable();
+            $table->boolean('oten_valid')->nullable();
+            $table->boolean('enrollment_valid')->nullable();
+            $table->string('final_validasi_status')->nullable();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->string('updated_by')->nullable();
             $table->softDeletes();
@@ -44,6 +51,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('banpot_masters');
+        Schema::dropIfExists('banpot_master_completeds');
     }
 };

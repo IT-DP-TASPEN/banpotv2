@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\BanpotValidationService;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BanpotMaster extends Model
@@ -27,6 +28,7 @@ class BanpotMaster extends Model
         static::updating(function ($model) {
             $model->updated_by = auth()->id();
         });
+
 
         static::deleting(function ($model) {
             $attributes = $model->getAttributes();
@@ -80,7 +82,7 @@ class BanpotMaster extends Model
             'mitra_id', // FK di identitas_mitra_masters table
             'created_by', // Local key di banpot_masters
             'mitra_id' // Local key di users (menghubungkan ke mitra_masters)
-        );
+        )->whereColumn('banpot_masters.notas', 'identitas_mitra_masters.notas');
     }
 
     public function identitasByNotas()
@@ -112,12 +114,21 @@ class BanpotMaster extends Model
         );
     }
 
-    protected static function generateBanpotId(): string
+    public static function generateBanpotId(): string
     {
-        $latest = BanpotMaster::orderBy('id', 'desc')->first();
-        $sequence = $latest ? (int) str_replace('B', '', $latest->banpot_id) + 1 : 1;
-        return 'B' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+        return DB::transaction(function () {
+            $latestMaster = DB::table('banpot_masters')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('banpot_master_completeds')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('B', '', $latestMaster->banpot_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('B', '', $latestCompleted->banpot_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'B' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
+
 
     protected static function calculation($model)
     {
@@ -147,52 +158,49 @@ class BanpotMaster extends Model
         $model->status_banpot = '1';
     }
 
-    public function getValidasiMessages(): array
+    public static function getValidasiResult($record)
     {
         $messages = [];
-        $user = $this->user;
+        $user = $record->user;
 
-        $rekExist = IdentitasMitraMaster::where('rek_tabungan', $this->rek_tabungan)->first();
-
+        $rekExist = IdentitasMitraMaster::where('rek_tabungan', $record->rek_tabungan)->first();
         if ($rekExist) {
             if ($rekExist->mitra_id != $user->mitra_id) {
                 $messages[] = 'Rekening sudah didaftarkan oleh mitra lain';
-            } elseif ($rekExist->rek_tabungan != $this->rek_tabungan) {
+            } elseif ($rekExist->rek_tabungan != $record->rek_tabungan) {
                 $messages[] = 'Rekening belum cocok dengan identitas mitra';
             }
         } else {
             $messages[] = 'Rekening belum terdaftar di identitas mitra';
         }
 
-        $notasExist = IdentitasMitraMaster::where('notas', $this->notas)->first();
-
+        $notasExist = IdentitasMitraMaster::where('notas', $record->notas)->first();
         if ($notasExist) {
             if ($notasExist->mitra_id != $user->mitra_id) {
                 $messages[] = 'Notas sudah didaftarkan oleh mitra lain';
-            } elseif ($notasExist->notas != $this->notas) {
+            } elseif ($notasExist->notas != $record->notas) {
                 $messages[] = 'Notas belum cocok dengan identitas mitra';
             }
         } else {
             $messages[] = 'Notas belum terdaftar di identitas mitra';
         }
 
-        $dapemExist = IdentitasMitraMaster::where('notas', $this->notas)
+        $dapemExist = IdentitasMitraMaster::where('notas', $record->notas)
             ->where('mitra_id', '!=', $user->mitra_id)
             ->exists();
 
-        if (!$this->dapemMaster || empty($this->dapemMaster->notas)) {
+        if (!$record->dapemMaster || empty($record->dapemMaster->notas)) {
             $messages[] = 'Dapem belum ditemukan';
         } elseif ($dapemExist) {
             $messages[] = 'Dapem sudah didaftarkan oleh mitra lain';
         }
 
-        $oten = $this->otenMaster?->sortByDesc('log_date_time')?->first();
-        $otenExist = IdentitasMitraMaster::where('notas', $this->notas)
+        $oten = $record->otenMaster?->sortByDesc('log_date_time')?->first();
+        $otenExist = IdentitasMitraMaster::where('notas', $record->notas)
             ->where('mitra_id', '!=', $user->mitra_id)
             ->exists();
 
         $otenValid = $oten && in_array($oten->kode_otentifikasi, [11, 13, 14, 15]);
-
         if (!$otenValid) {
             $messages[] = 'Belum Otentifikasi';
         } elseif ($otenExist) {
@@ -200,37 +208,12 @@ class BanpotMaster extends Model
         }
 
         $enrollValid = $oten && in_array($oten->kode_otentifikasi, [13, 14, 15, 30]);
-
         if (!$enrollValid) {
             $messages[] = 'Belum Enrollment';
         } elseif ($otenExist) {
             $messages[] = 'Enrollment sudah didaftarkan oleh mitra lain';
         }
 
-        return $messages;
-    }
-
-    protected function applyFiltersToTableRecords($records): \Illuminate\Support\Collection
-    {
-        $records = parent::applyFiltersToTableRecords($records);
-
-        $selectedFilters = request()->get('tableFilters')['validasi_filter'] ?? null;
-
-        if ($selectedFilters) {
-            $records = $records->filter(function ($record) use ($selectedFilters) {
-                $hasilValidasi = empty($record->getValidasiMessages()) ? 'Done' : implode(', ', $record->getValidasiMessages());
-
-                // Loop filter yg dipilih
-                foreach ($selectedFilters as $filterValue) {
-                    if (str_contains($hasilValidasi, $filterValue)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            });
-        }
-
-        return $records;
+        return empty($messages) ? 'Done' : implode(', ', $messages);
     }
 }

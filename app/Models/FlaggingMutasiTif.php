@@ -17,6 +17,7 @@ class FlaggingMutasiTif extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
+            $model->permintaan_id = self::generateFlaggingMutasiTifId();
         });
 
         // Set updated_by saat mengupdate data
@@ -68,5 +69,20 @@ class FlaggingMutasiTif extends Model
             User::class,
             'created_by'
         );
+    }
+
+    public static function generateFlaggingMutasiTifId(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('flagging_mutasi_tifs')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('flagging_mutasi_tif_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('FM', '', $latestMaster->permintaan_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('FM', '', $latestCompleted->permintaan_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'FM' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
 }

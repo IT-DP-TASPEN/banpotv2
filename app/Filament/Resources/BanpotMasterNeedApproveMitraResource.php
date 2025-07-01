@@ -8,6 +8,13 @@ use Filament\Forms\Form;
 use Filament\Tables\Table;
 use App\Models\BanpotMaster;
 use Filament\Resources\Resource;
+use Illuminate\Support\Collection;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\BanpotMasterNeedApproveMitra;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -312,8 +319,7 @@ class BanpotMasterNeedApproveMitraResource extends Resource
                     ->default('1')
                     ->columnSpanFull(),
                 Forms\Components\Textarea::make('keterangan')
-                    ->columnSpanFull()
-                    ->visible(fn() => auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()),
+                    ->columnSpanFull(),
                 Forms\Components\TextInput::make('user_id')
                     ->hidden()
                     ->required()
@@ -642,10 +648,78 @@ class BanpotMasterNeedApproveMitraResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    // Tables\Actions\DeleteBulkAction::make(),
-                    // Tables\Actions\ForceDeleteBulkAction::make(),
-                    // Tables\Actions\RestoreBulkAction::make(),
-                ]),
+                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\BulkAction::make('updatestatusbanpot')
+                        ->label('Update Status Banpot')
+                        ->icon('heroicon-m-pencil-square')
+                        ->form([
+                            Forms\Components\Select::make('status_banpot')
+                                ->label('Select Status')
+                                ->options(function () {
+                                    $user = auth()->user();
+                                    $options = [
+                                        '1' => 'Request',
+                                    ];
+
+                                    if ($user->isAdmin() || $user->isSuperAdmin()) {
+                                        $options += [
+                                            '2' => 'Checked by Mitra',
+                                            '3' => 'Approved by Mitra',
+                                            '4' => 'Rejected by Mitra',
+                                            '5' => 'Canceled by Mitra',
+                                            '6' => 'Checked by Bank DP Taspen',
+                                            '7' => 'Approved by Bank DP Taspen',
+                                            '8' => 'Rejected by Bank DP Taspen',
+                                            '9' => 'On Process',
+                                            '10' => 'Success',
+                                            '11' => 'Failed',
+                                        ];
+                                    }
+
+                                    if ($user->isStaffBankDPTaspen()) {
+                                        $options += [
+                                            '6' => 'Checked by Bank DP Taspen',
+                                            '9' => 'On Process',
+                                            '10' => 'Success',
+                                            '11' => 'Failed',
+                                        ];
+                                    }
+
+                                    if ($user->isApprovalBankDPTaspen()) {
+                                        $options += [
+                                            '7' => 'Approved by Bank DP Taspen',
+                                            '8' => 'Rejected by Bank DP Taspen',
+                                        ];
+                                    }
+
+                                    if ($user->isApprovalMitraPusat()) {
+                                        $options += [
+                                            '3' => 'Approved by Mitra',
+                                            '4' => 'Rejected by Mitra',
+                                            '5' => 'Canceled by Mitra',
+                                        ];
+                                    }
+
+                                    return $options;
+                                })
+                                ->required(),
+                        ])
+                        ->action(function (array $data, Collection $records) {
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'status_banpot' => $data['status_banpot'],
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->title('Status updated successfully!')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Update Status')
+                        ->modalSubheading('Select a new status for the selected records.')
+                ])
             ]);
     }
 
