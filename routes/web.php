@@ -5,7 +5,7 @@ use Filament\Pages\Auth\PasswordReset\RequestPasswordReset;
 use Filament\Pages\Auth\PasswordReset\ResetPassword;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/admin');
 });
 
 Route::get('/tab/{transaksiSimpananBerjangka}', function (App\Models\PembukaanRekeningBaru $transaksiSimpananBerjangka) {

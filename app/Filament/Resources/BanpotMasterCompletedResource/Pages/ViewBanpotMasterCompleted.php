@@ -13,7 +13,11 @@ class ViewBanpotMasterCompleted extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\EditAction::make(),
+            Actions\EditAction::make()
+                ->visible(function () {
+                    $user = auth()->user();
+                    return $user->isAdmin() || $user->isSuperAdmin() || $user->isStaffBankDPTaspen() || $user->isApprovalBankDPTaspen();
+                }),
         ];
     }
 }

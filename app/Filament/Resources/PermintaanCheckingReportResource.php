@@ -265,6 +265,6 @@ class PermintaanCheckingReportResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isApprovalBankDPTaspen() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isStaffMitraPusat() || auth()->user()->isApprovalMitraPusat() || auth()->user()->isStaffMitraCabang() || auth()->user()->isApprovalMitraCabang();
     }
 }

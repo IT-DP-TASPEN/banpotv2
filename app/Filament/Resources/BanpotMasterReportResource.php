@@ -654,6 +654,13 @@ class BanpotMasterReportResource extends Resource
         ];
     }
 
+    protected function getListeners(): array
+    {
+        return [
+            'refreshTable' => '$refresh',
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
@@ -666,9 +673,34 @@ class BanpotMasterReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        $user = auth()->user();
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
+            ->when(
+                $user->roles == '6',
+                fn($query) => $query
+                    ->where('created_by', $user->id)
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                $user->roles == '4',
+                fn($query) => $query
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('roles', '6')
+                            ->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                !in_array($user->roles, ['4', '6']),
+                fn($query) => $query // Roles lain tanpa filter
+            );
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isApprovalBankDPTaspen() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isStaffMitraPusat() || auth()->user()->isApprovalMitraPusat();
     }
 }

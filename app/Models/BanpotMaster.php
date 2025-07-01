@@ -29,66 +29,6 @@ class BanpotMaster extends Model
             $model->updated_by = auth()->id();
         });
 
-        // static::updated(function ($model) {
-        //     if (in_array($model->status_banpot, ['3', '4', '5', '6', '7', '8', '9', '10', '11'])) {
-        //         $validationResult = self::getValidasiResult($model);
-
-        //         // Mapping validasi boolean
-        //         $rekTabunganValid = !str_contains($validationResult, 'Rekening');
-        //         $notasValid = !str_contains($validationResult, 'Notas');
-        //         $dapemValid = !str_contains($validationResult, 'Dapem');
-        //         $otenValid = !str_contains($validationResult, 'Otentifikasi');
-        //         $enrollmentValid = !str_contains($validationResult, 'Enrollment');
-
-        //         // Hitung Fee Banpot
-        //         $jenisFee = $model->mitraMaster->jenis_fee ?? 0;
-        //         $feePercent = $model->mitraMaster->fee_banpot ?? 0;
-
-        //         if ($jenisFee == 1) {
-        //             $feeBanpot = $model->gaji_pensiun * ($feePercent / 100);
-        //         } elseif ($jenisFee == 2) {
-        //             $feeBanpot = $model->nominal_potongan * ($feePercent / 100);
-        //         } else {
-        //             $feeBanpot = 0;
-        //         }
-
-        //         // Insert ke banpot_master_completeds
-        //         \App\Models\BanpotMasterCompleted::create([
-        //             'banpot_id' => $model->banpot_id,
-        //             'rek_tabungan' => $model->rek_tabungan,
-        //             'nama_nasabah' => $model->nama_nasabah,
-        //             'notas' => $model->notas,
-        //             'rek_kredit' => $model->rek_kredit,
-        //             'tenor' => $model->tenor,
-        //             'angsuran_ke' => $model->angsuran_ke,
-        //             'tat_kredit' => $model->tat_kredit,
-        //             'tmt_kredit' => $model->tmt_kredit,
-        //             'gaji_pensiun' => $model->gaji_pensiun,
-        //             'nominal_potongan' => $model->nominal_potongan,
-        //             'saldo_mengendap' => $model->saldo_mengendap,
-        //             'jumlah_tertagih' => $model->jumlah_tertagih,
-        //             'pinbuk_sisa_gaji' => $model->pinbuk_sisa_gaji,
-        //             'saldo_after_pinbuk' => $model->saldo_after_pinbuk,
-        //             'bank_transfer' => $model->bank_transfer,
-        //             'rek_transfer' => $model->rek_transfer,
-        //             'status_banpot' => $model->status_banpot,
-        //             'keterangan' => $model->keterangan,
-        //             'fee_banpot' => $feeBanpot,
-        //             'rek_tabungan_valid' => $rekTabunganValid,
-        //             'notas_valid' => $notasValid,
-        //             'dapem_valid' => $dapemValid,
-        //             'oten_valid' => $otenValid,
-        //             'enrollment_valid' => $enrollmentValid,
-        //             'final_validasi_status' => $validationResult,
-        //             'created_by' => $model->created_by,
-        //             'updated_by' => $model->updated_by,
-        //             'created_at' => now(),
-        //             'updated_at' => now(),
-        //         ]);
-        //     }
-        // });
-
-
 
         static::deleting(function ($model) {
             $attributes = $model->getAttributes();

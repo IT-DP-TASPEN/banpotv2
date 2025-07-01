@@ -353,30 +353,6 @@ class BanpotMasterResource extends Resource
                             ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
                             ->numeric()
                     ]),
-                Tables\Columns\IconColumn::make('rek_tabungan_validasi')
-                    ->label('Validasi Rek Tabungan')
-                    ->boolean()
-                    ->color(fn($state) => match ($state) {
-                        true => 'success',
-                        false => 'danger',
-                        default => 'warning',
-                    })
-                    ->getStateUsing(function ($record): bool {
-                        $identity = $record->identitasByNotas;
-                        $user = $record->user;
-
-                        if (!$identity || !$user) {
-                            return false;
-                        }
-
-                        $mitraMatch = $user->mitra_id == $identity->mitra_id;
-
-                        $rekMatch = !empty($record->rek_tabungan)
-                            && !empty($identity->rek_tabungan)
-                            && $record->rek_tabungan == $identity->rek_tabungan;
-
-                        return $mitraMatch && $rekMatch;
-                    }),
                 Tables\Columns\IconColumn::make('notas_validasi')
                     ->label('Validasi Notas')
                     ->boolean()
@@ -401,6 +377,31 @@ class BanpotMasterResource extends Resource
 
                         return $mitraMatch && $notasMatch;
                     }),
+                Tables\Columns\IconColumn::make('rek_tabungan_validasi')
+                    ->label('Validasi Rek Tabungan')
+                    ->boolean()
+                    ->color(fn($state) => match ($state) {
+                        true => 'success',
+                        false => 'danger',
+                        default => 'warning',
+                    })
+                    ->getStateUsing(function ($record): bool {
+                        $identity = $record->identitasByNotas;
+                        $user = $record->user;
+
+                        if (!$identity || !$user) {
+                            return false;
+                        }
+
+                        $mitraMatch = $user->mitra_id == $identity->mitra_id;
+
+                        $rekMatch = !empty($record->rek_tabungan)
+                            && !empty($identity->rek_tabungan)
+                            && $record->rek_tabungan == $identity->rek_tabungan;
+
+                        return $mitraMatch && $rekMatch;
+                    }),
+
                 Tables\Columns\IconColumn::make('dapem_validasi')
                     ->label('Validasi Dapem')
                     ->boolean()
@@ -494,18 +495,7 @@ class BanpotMasterResource extends Resource
                         $messages = [];
                         $user = $record->user;
 
-                        // ===== VALIDASI REKENING =====
-                        $rekExist = IdentitasMitraMaster::where('rek_tabungan', $record->rek_tabungan)->first();
 
-                        if ($rekExist) {
-                            if ($rekExist->mitra_id != $user->mitra_id) {
-                                $messages[] = 'Rekening sudah didaftarkan oleh mitra lain';
-                            } elseif ($rekExist->rek_tabungan != $record->rek_tabungan) {
-                                $messages[] = 'Rekening belum cocok dengan identitas mitra';
-                            }
-                        } else {
-                            $messages[] = 'Rekening belum terdaftar di identitas mitra';
-                        }
 
                         // ===== VALIDASI NOTAS =====
                         $notasExist = IdentitasMitraMaster::where('notas', $record->notas)->first();
@@ -520,6 +510,18 @@ class BanpotMasterResource extends Resource
                             $messages[] = 'Notas belum terdaftar di identitas mitra';
                         }
 
+                        // ===== VALIDASI REKENING =====
+                        $rekExist = IdentitasMitraMaster::where('rek_tabungan', $record->rek_tabungan)->first();
+
+                        if ($rekExist) {
+                            if ($rekExist->mitra_id != $user->mitra_id) {
+                                $messages[] = 'Rekening sudah didaftarkan oleh mitra lain';
+                            } elseif ($rekExist->rek_tabungan != $record->rek_tabungan) {
+                                $messages[] = 'Rekening belum cocok dengan identitas mitra';
+                            }
+                        } else {
+                            $messages[] = 'Rekening belum terdaftar di identitas mitra';
+                        }
                         // ===== VALIDASI DAPEM =====
                         $dapemExist = IdentitasMitraMaster::where('notas', $record->notas)
                             ->where('mitra_id', '!=', $user->mitra_id)
@@ -724,6 +726,14 @@ class BanpotMasterResource extends Resource
     {
         return [];
     }
+
+    protected function getListeners(): array
+    {
+        return [
+            'refreshTable' => '$refresh',
+        ];
+    }
+
 
     public static function getPages(): array
     {

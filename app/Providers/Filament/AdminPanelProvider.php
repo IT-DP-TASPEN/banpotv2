@@ -2,13 +2,17 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Widgets\BanpotRevenueWidget;
+use App\Filament\Widgets\MyCustomInfoWidget;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\Widgets;
 use Filament\PanelProvider;
+use App\Filament\Widgets\BanpotStatusStats;
 use Filament\Support\Colors\Color;
 use Filament\Http\Middleware\Authenticate;
+use Filament\View\LegacyComponents\Widget;
+use App\Filament\Widgets\BanpotRevenueWidget;
+use App\Filament\Widgets\BanpotStatusPerBulanChart;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -45,6 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
 
                 Widgets\AccountWidget::class,
+
             ])
             ->plugins([
                 FilamentApexChartsPlugin::make(),
