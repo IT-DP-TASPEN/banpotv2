@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\PermintaaanFlaggingTifReportResource\Pages;
 
-use App\Filament\Resources\PermintaaanFlaggingTifReportResource;
 use Filament\Actions;
+use App\Exports\FlaggingTifExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Filament\Resources\Pages\ListRecords;
+use App\Filament\Resources\PermintaaanFlaggingTifReportResource;
 
 class ListPermintaaanFlaggingTifReports extends ListRecords
 {
@@ -12,6 +14,19 @@ class ListPermintaaanFlaggingTifReports extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Actions\Action::make('exportflaggingtif')
+                ->label('Export')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('primary')
+                ->action(function () {
+                    $flaggingtif = $this->getFilteredTableQuery();
+                    $this->applySortingToTableQuery($flaggingtif);
+
+                    $fileName = 'report_flagging_tif_' . date('Ymd_His') . '.xlsx';
+
+                    return Excel::download(new FlaggingTifExport($flaggingtif), $fileName);
+                }),
+        ];
     }
 }

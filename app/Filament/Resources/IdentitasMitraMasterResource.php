@@ -26,24 +26,24 @@ class IdentitasMitraMasterResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('identity_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = IdentitasMitraMaster::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('identity_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = IdentitasMitraMaster::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('IM', '', $latest->identity_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('IM', '', $latest->identity_id) + 1 :
+                //             1;
 
-                        return 'IM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'IM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\Select::make('mitra_id')
                     ->relationship('mitraMaster', 'id')
                     ->required()

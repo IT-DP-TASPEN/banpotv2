@@ -18,14 +18,15 @@ class IdentitasMitraMaster extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
+            $model->identity_id = self::generateIdentityId();
 
             if (!empty($model->rek_tabungan)) {
                 $model->rek_replace = preg_replace('/[^a-zA-Z0-9]/', '', $model->rek_tabungan);
             }
 
-            if (empty($model->identity_id)) {
-                $model->identity_id = self::generateIdentityId();
-            }
+            // if (empty($model->identity_id)) {
+            //     $model->identity_id = self::generateIdentityId();
+            // }
         });
 
         // Set updated_by saat mengupdate data
@@ -71,14 +72,16 @@ class IdentitasMitraMaster extends Model
 
     private static function generateIdentityId()
     {
-        // Ambil ID transaksi terakhir
-        $latest = self::orderBy('id', 'desc')->first();
+        return DB::transaction(function () {
+            $latestMaster = DB::table('identitas_mitra_masters')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('identitas_mitra_master_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
 
-        // Generate nomor urut
-        $sequence = $latest ?
-            (int) str_replace('IM', '', $latest->identity_id) + 1 :
-            1;
+            $lastNumberMaster = $latestMaster ? (int) str_replace('IM', '', $latestMaster->identity_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('IM', '', $latestCompleted->identity_id) : 0;
 
-        return 'IM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'IM' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
 }
