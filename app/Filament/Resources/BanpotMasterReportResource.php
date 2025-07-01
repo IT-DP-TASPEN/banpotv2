@@ -602,6 +602,18 @@ class BanpotMasterReportResource extends Resource
                         return $query
                             ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
                             ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    })->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['created_from'] ?? null) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($data['created_from'])->format('d M Y');
+                        }
+
+                        if ($data['created_until'] ?? null) {
+                            $indicators[] = 'Until: ' . \Carbon\Carbon::parse($data['created_until'])->format('d M Y');
+                        }
+
+                        return $indicators;
                     }),
 
             ])

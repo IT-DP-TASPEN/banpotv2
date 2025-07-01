@@ -152,7 +152,7 @@ class FlaggingMutasiTifReportResource extends Resource
                     ->date()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('biaya_flagging_mutasi_tif')
-                    ->label('Fee Checking')
+                    ->label('Fee Flagging Mutasi TIF')
                     ->getStateUsing(fn($record) => $record->mitraMaster->biaya_flagging_mutasi_tif ?? 0)
                     ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
                     ->summarize([
@@ -266,7 +266,28 @@ class FlaggingMutasiTifReportResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    })->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['created_from'] ?? null) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($data['created_from'])->format('d M Y');
+                        }
+
+                        if ($data['created_until'] ?? null) {
+                            $indicators[] = 'Until: ' . \Carbon\Carbon::parse($data['created_until'])->format('d M Y');
+                        }
+
+                        return $indicators;
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -300,28 +321,34 @@ class FlaggingMutasiTifReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-
         $user = auth()->user();
+        return parent::getEloquentQuery()
+            ->when(
+                $user->roles == '7',
+                fn($query) => $query
+                    ->where('created_by', $user->id)
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                $user->roles == '5',
+                fn($query) => $query
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('roles', '7')
+                            ->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                !in_array($user->roles, ['5', '7']),
+                fn($query) => $query // Roles lain tanpa filter
+            );
+    }
 
-        if ($user->isAdmin() || $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // For approval mitra pusat (role 4), show all data from their mitra's branches
-        if ($user->roles == '4') {
-            return $query->whereHas('user', function ($q) use ($user) {
-                $q->where('mitra_id', $user->mitra_id);
-            });
-        }
-
-        // For other roles (approval cabang/staff), show only their branch data
-        return $query->where('created_by', auth()->id())
-            ->orWhereHas('user', function ($q) use ($user) {
-                $q->where('mitra_cabang_id', $user->mitra_cabang_id);
-            });
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
     }
 }

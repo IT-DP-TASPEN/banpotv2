@@ -8,6 +8,7 @@ use Filament\Forms\Form;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use App\Models\PermintaaanFlaggingTif;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\PermintaaanFlaggingTifReport;
 use Filament\Tables\Columns\Summarizers\Summarizer;
@@ -29,24 +30,24 @@ class PermintaaanFlaggingTifReportResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('permintaan_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = PermintaaanFlaggingTif::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('permintaan_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = PermintaaanFlaggingTif::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('FT', '', $latest->permintaan_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('FT', '', $latest->permintaan_id) + 1 :
+                //             1;
 
-                        return 'FT' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'FT' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('wilayah')
                     ->required(),
                 Forms\Components\Select::make('jenis_pensiun')
@@ -142,8 +143,28 @@ class PermintaaanFlaggingTifReportResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('permintaan_id')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('jenis_pensiun'),
-                Tables\Columns\TextColumn::make('jenis_flagging'),
+                Tables\Columns\TextColumn::make('jenis_pensiun')
+                    ->label('Jenis Pensiunan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Pensiun',
+                            '2' => 'Aktif',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    }),
+                Tables\Columns\TextColumn::make('jenis_flagging')
+                    ->label('Jenis Flagging')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Permintaan Flagging Pensiun ( TIF )',
+                            '2' => 'Permintaan Flagging THT ( TIF )',
+                            '3' => 'Permintaan Flagging Prapen ( TIF )',
+                            '4' => 'Permintaan Flagging Prapen THT ( TIF )',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    }),
                 Tables\Columns\TextColumn::make('notas')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('nik')
@@ -160,8 +181,13 @@ class PermintaaanFlaggingTifReportResource extends Resource
                 Tables\Columns\TextColumn::make('tat_kredit')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('sp_deb_flagging')
-                    ->searchable(),
+                Tables\Columns\IconColumn::make('sp_deb_flagging')
+                    ->label('Surat Pernyataan Debitur Flagging')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->sp_deb_flagging))
+                    ->openUrlInNewTab()
+                    ->tooltip('Surat Pernyataan Debitur Flagging')
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('biaya_flagging')
                     ->label('Biaya Flagging')
                     ->formatStateUsing(function ($record) {
@@ -177,7 +203,7 @@ class PermintaaanFlaggingTifReportResource extends Resource
                         $column = $biayaMapping[$record->jenis_flagging] ?? null;
                         $value = $column ? ($record->mitraMaster->{$column} ?? null) : null;
                         return $value !== null
-                            ? 'Rp ' . number_format($value, 0, ',', '.')
+                            ?  number_format($value, 0, ',', '.')
                             : '-';
                     })
                     ->default('-')
@@ -202,17 +228,72 @@ class PermintaaanFlaggingTifReportResource extends Resource
                                         return $column ? ($record->mitraMaster->{$column} ?? 0) : 0;
                                     });
                             })
-                            ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
+                            ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
                             ->numeric()
                     ]),
-                Tables\Columns\TextColumn::make('status_permintaan'),
-                Tables\Columns\TextColumn::make('bukti_hasil')
+                Tables\Columns\TextColumn::make('biaya_checking')
+                    ->label('Fee Checking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                PermintaaanFlaggingTif::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('status_permintaan')
+                    ->label('Status Permintaan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Request',
+                            '2' => 'Checked by Mitra',
+                            '3' => 'Approved by Mitra',
+                            '4' => 'Rejected by Mitra',
+                            '5' => 'Canceled by Mitra',
+                            '6' => 'Checked by Bank DP Taspen',
+                            '7' => 'Approved by Bank DP Taspen',
+                            '8' => 'Rejected by Bank DP Taspen',
+                            '9' => 'On Process',
+                            '10' => 'Success',
+                            '11' => 'Failed',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    })
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            '1' => 'gray',
+                            '2', '6' => 'warning',
+                            '3', '7', '10' => 'success',
+                            '4', '5', '8', '11' => 'danger',
+                            '9' => 'info',
+                            default => 'secondary',
+                        };
+                    }),
+                Tables\Columns\IconColumn::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->bukti_hasil))
+                    ->openUrlInNewTab()
+                    ->tooltip('Bukti Hasil')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_by')
                     ->numeric()
-                    ->sortable(),
+                    ->sortable()
+                    ->hidden(),
                 Tables\Columns\TextColumn::make('updated_by')
-                    ->searchable(),
+                    ->searchable()
+                    ->hidden(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
@@ -236,12 +317,25 @@ class PermintaaanFlaggingTifReportResource extends Resource
                         return $query
                             ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
                             ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    })->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['created_from'] ?? null) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($data['created_from'])->format('d M Y');
+                        }
+
+                        if ($data['created_until'] ?? null) {
+                            $indicators[] = 'Until: ' . \Carbon\Carbon::parse($data['created_until'])->format('d M Y');
+                        }
+
+                        return $indicators;
                     }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])
+
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     // Tables\Actions\DeleteBulkAction::make(),
@@ -270,28 +364,34 @@ class PermintaaanFlaggingTifReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-
         $user = auth()->user();
+        return parent::getEloquentQuery()
+            ->when(
+                $user->roles == '7',
+                fn($query) => $query
+                    ->where('created_by', $user->id)
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                $user->roles == '5',
+                fn($query) => $query
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('roles', '7')
+                            ->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                !in_array($user->roles, ['5', '7']),
+                fn($query) => $query // Roles lain tanpa filter
+            );
+    }
 
-        if ($user->isAdmin() || $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // For approval mitra pusat (role 4), show all data from their mitra's branches
-        if ($user->roles == '4') {
-            return $query->whereHas('user', function ($q) use ($user) {
-                $q->where('mitra_id', $user->mitra_id);
-            });
-        }
-
-        // For other roles (approval cabang/staff), show only their branch data
-        return $query->where('created_by', auth()->id())
-            ->orWhereHas('user', function ($q) use ($user) {
-                $q->where('mitra_cabang_id', $user->mitra_cabang_id);
-            });
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
     }
 }

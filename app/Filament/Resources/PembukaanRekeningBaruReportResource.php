@@ -466,7 +466,7 @@ class PembukaanRekeningBaruReportResource extends Resource
                     ->searchable()
                     ->visible(fn($record) => !empty($record->status_permintaan) && in_array($record->status_permintaan, ['3', '6', '7', '9', '10'])),
                 Tables\Columns\TextColumn::make('status_permintaan')
-                    ->label('Status Banpot')
+                    ->label('Status Pembukaan Rekening')
                     ->formatStateUsing(function ($state) {
                         $statuses = [
                             '1' => 'Request',
@@ -502,8 +502,7 @@ class PembukaanRekeningBaruReportResource extends Resource
                             'Sudah di daftarkan' => 'danger',
                             default => 'secondary',
                         };
-                    })
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    }),
                 Tables\Columns\TextColumn::make('created_by')
                     ->numeric()
                     ->hidden()
@@ -535,6 +534,18 @@ class PembukaanRekeningBaruReportResource extends Resource
                         return $query
                             ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
                             ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    })->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['created_from'] ?? null) {
+                            $indicators[] = 'From: ' . \Carbon\Carbon::parse($data['created_from'])->format('d M Y');
+                        }
+
+                        if ($data['created_until'] ?? null) {
+                            $indicators[] = 'Until: ' . \Carbon\Carbon::parse($data['created_until'])->format('d M Y');
+                        }
+
+                        return $indicators;
                     }),
             ])
             ->actions([
@@ -578,28 +589,34 @@ class PembukaanRekeningBaruReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-
         $user = auth()->user();
+        return parent::getEloquentQuery()
+            ->when(
+                $user->roles == '7',
+                fn($query) => $query
+                    ->where('created_by', $user->id)
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                $user->roles == '5',
+                fn($query) => $query
+                    ->whereHas('creator', function ($q) use ($user) {
+                        $q->where('roles', '7')
+                            ->where('mitra_id', $user->mitra_id)
+                            ->where('mitra_cabang_id', $user->mitra_cabang_id);
+                    })
+            )
+            ->when(
+                !in_array($user->roles, ['5', '7']),
+                fn($query) => $query // Roles lain tanpa filter
+            );
+    }
 
-        if ($user->isAdmin() || $user->isSuperAdmin()) {
-            return $query;
-        }
-
-        // For approval mitra pusat (role 4), show all data from their mitra's branches
-        if ($user->roles == '4') {
-            return $query->whereHas('user', function ($q) use ($user) {
-                $q->where('mitra_id', $user->mitra_id);
-            });
-        }
-
-        // For other roles (approval cabang/staff), show only their branch data
-        return $query->where('created_by', auth()->id())
-            ->orWhereHas('user', function ($q) use ($user) {
-                $q->where('mitra_cabang_id', $user->mitra_cabang_id);
-            });
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffMitraCabang();
     }
 }
