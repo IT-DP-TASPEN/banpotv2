@@ -2,16 +2,18 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Forms;
+use Filament\Tables;
+use Filament\Forms\Form;
+use Filament\Tables\Table;
+use Filament\Resources\Resource;
+use App\Models\PermintaanMutasiTos;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Columns\Summarizers\Summarizer;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\PermintaanMutasiTosResource\Pages;
 use App\Filament\Resources\PermintaanMutasiTosResource\RelationManagers;
-use App\Models\PermintaanMutasiTos;
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PermintaanMutasiTosResource extends Resource
 {
@@ -26,23 +28,23 @@ class PermintaanMutasiTosResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('permintaan_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = PermintaanMutasiTos::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('permintaan_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = PermintaanMutasiTos::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('MT', '', $latest->permintaan_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('MT', '', $latest->permintaan_id) + 1 :
+                //             1;
 
-                        return 'MT' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'MT' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('wilayah')
                     ->required(),
                 Forms\Components\TextInput::make('nama_nasabah'),
@@ -132,25 +134,116 @@ class PermintaanMutasiTosResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('no_handphone')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('ktp')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_sp3r')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('sk_pensiun')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('foto_tab')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('lampiran_persyaratan')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('status_permintaan'),
-                Tables\Columns\TextColumn::make('bukti_hasil')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('mitraMaster.biaya_flagging_mutasi_tos')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('updated_by')
+                Tables\Columns\TextColumn::make('biaya_flagging_mutasi_tos')
+                    ->sortable()
+                    ->label('Biaya Mutasi Tos')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_flagging_mutasi_tos ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                PermintaanMutasiTos::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_flagging_mutasi_tos ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('biaya_checking')
+                    ->hidden()
+                    ->sortable()
+                    ->label('BiayaChecking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                PermintaanMutasiTos::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\IconColumn::make('ktp')
+                    ->label('Foto KTP')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->ktp))
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto KTP')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('form_sp3r')
+                    ->label('Form SP3R')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->form_sp3r))
+                    ->openUrlInNewTab()
+                    ->tooltip('Form SP3R')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('sk_pensiun')
+                    ->label('Surat Keterangan Pensiun')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->sk_pensiun))
+                    ->openUrlInNewTab()
+                    ->tooltip('Surat Keterangan Pensiun')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('foto_tab')
+                    ->label('Foto Tabungan')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->foto_tab))
+                    ->openUrlInNewTab()
+                    ->tooltip('Lampiran Persyaratan')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('lampiran_persyaratan')
+                    ->label('Foto Tabungan')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->lampiran_persyaratan))
+                    ->openUrlInNewTab()
+                    ->tooltip('Lampiran Persyaratan')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('status_permintaan')
+                    ->label('Status Permintaan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Request',
+                            '2' => 'Checked by Mitra',
+                            '3' => 'Approved by Mitra',
+                            '4' => 'Rejected by Mitra',
+                            '5' => 'Canceled by Mitra',
+                            '6' => 'Checked by Bank DP Taspen',
+                            '7' => 'Approved by Bank DP Taspen',
+                            '8' => 'Rejected by Bank DP Taspen',
+                            '9' => 'On Process',
+                            '10' => 'Success',
+                            '11' => 'Failed',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    })
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            '1' => 'gray',
+                            '2', '6' => 'warning',
+                            '3', '7', '10' => 'success',
+                            '4', '5', '8', '11' => 'danger',
+                            '9' => 'info',
+                            default => 'secondary',
+                        };
+                    }),
+                Tables\Columns\IconColumn::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->bukti_hasil))
+                    ->openUrlInNewTab()
+                    ->tooltip('Bukti Hasil')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
@@ -166,7 +259,16 @@ class PermintaanMutasiTosResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

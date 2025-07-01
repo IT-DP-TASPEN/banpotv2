@@ -27,24 +27,24 @@ class FlaggingMutasiTifApprovalMitraResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('permintaan_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = FlaggingMutasiTif::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('permintaan_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = FlaggingMutasiTif::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('FM', '', $latest->permintaan_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('FM', '', $latest->permintaan_id) + 1 :
+                //             1;
 
-                        return 'FM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'FM' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('wilayah')
                     ->required()
                     ->columnSpanFull(),
@@ -148,23 +148,106 @@ class FlaggingMutasiTifApprovalMitraResource extends Resource
                 Tables\Columns\TextColumn::make('tat_kredit')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('ktp')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('sp_deb_flagging')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('foto_tab')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('form_pindah_kantor')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('status_permintaan'),
-                Tables\Columns\TextColumn::make('bukti_hasil')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('mitraMaster.biaya_flagging_mutasi_tif')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_by')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('updated_by')
+                Tables\Columns\TextColumn::make('biaya_flagging_mutasi_tif')
+                    ->label('Fee Checking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_flagging_mutasi_tif ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                FlaggingMutasiTif::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_flagging_mutasi_tif ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('biaya_checking')
+                    ->label('Fee Checking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                FlaggingMutasiTif::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\IconColumn::make('ktp')
+                    ->label('Foto KTP')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->ktp))
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto KTP')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('sp_deb_flagging')
+                    ->label('Surat Pernyataan Debitur Flagging')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->sp_deb_flagging))
+                    ->openUrlInNewTab()
+                    ->tooltip('Surat Pernyataan Debitur Flagging')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('foto_tab')
+                    ->label('Foto Tabungan')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->foto_tab))
+                    ->openUrlInNewTab()
+                    ->tooltip('Foto Tabungan')
+                    ->alignCenter(),
+                Tables\Columns\IconColumn::make('form_pindah_kantor')
+                    ->label('Form Pindah Kantor')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->form_pindah_kantor))
+                    ->openUrlInNewTab()
+                    ->tooltip('Form Pindah Kantor')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('status_permintaan')
+                    ->label('Status Permintaan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Request',
+                            '2' => 'Checked by Mitra',
+                            '3' => 'Approved by Mitra',
+                            '4' => 'Rejected by Mitra',
+                            '5' => 'Canceled by Mitra',
+                            '6' => 'Checked by Bank DP Taspen',
+                            '7' => 'Approved by Bank DP Taspen',
+                            '8' => 'Rejected by Bank DP Taspen',
+                            '9' => 'On Process',
+                            '10' => 'Success',
+                            '11' => 'Failed',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    })
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            '1' => 'gray',
+                            '2', '6' => 'warning',
+                            '3', '7', '10' => 'success',
+                            '4', '5', '8', '11' => 'danger',
+                            '9' => 'info',
+                            default => 'secondary',
+                        };
+                    }),
+                Tables\Columns\IconColumn::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->bukti_hasil))
+                    ->openUrlInNewTab()
+                    ->tooltip('Bukti Hasil')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()

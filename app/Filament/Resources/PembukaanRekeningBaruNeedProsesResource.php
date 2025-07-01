@@ -527,7 +527,16 @@ class PembukaanRekeningBaruNeedProsesResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -552,20 +561,9 @@ class PembukaanRekeningBaruNeedProsesResource extends Resource
                                 ->label('Select Status')
                                 ->options(function () {
                                     $user = auth()->user();
-                                    if ($user->isAdmin() || $user->isSuperAdmin()) {
-                                        $options += [
-                                            '2' => 'Checked by Mitra',
-                                            '3' => 'Approved by Mitra',
-                                            '4' => 'Rejected by Mitra',
-                                            '5' => 'Canceled by Mitra',
-                                            '6' => 'Checked by Bank DP Taspen',
-                                            '7' => 'Approved by Bank DP Taspen',
-                                            '8' => 'Rejected by Bank DP Taspen',
-                                            '9' => 'On Process',
-                                            '10' => 'Success',
-                                            '11' => 'Failed',
-                                        ];
-                                    }
+                                    $options = [
+                                        '1' => 'Request',
+                                    ];
 
                                     if ($user->isAdmin() || $user->isSuperAdmin()) {
                                         $options += [

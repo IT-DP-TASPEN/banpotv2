@@ -284,6 +284,8 @@ class PermintaaanFlaggingTifResource extends Resource
                     ->openUrlInNewTab()
                     ->tooltip('Bukti Hasil')
                     ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_by')
                     ->numeric()
                     ->sortable()
@@ -305,7 +307,16 @@ class PermintaaanFlaggingTifResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

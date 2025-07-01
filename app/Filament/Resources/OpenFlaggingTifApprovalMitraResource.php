@@ -27,49 +27,56 @@ class OpenFlaggingTifApprovalMitraResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('permintaan_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = OpenFlaggingTif::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('permintaan_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = OpenFlaggingTif::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('OF', '', $latest->permintaan_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('OF', '', $latest->permintaan_id) + 1 :
+                //             1;
 
-                        return 'OF' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'OF' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('wilayah')
                     ->required(),
                 Forms\Components\TextInput::make('nama_nasabah')
                     ->required(),
                 Forms\Components\TextInput::make('notas')
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->required(),
                 Forms\Components\TextInput::make('nik')
-                    ->maxLength(255),
-                Forms\Components\TextInput::make('tempat_lahir'),
-                Forms\Components\DatePicker::make('tanggal_lahir'),
+                    ->maxLength(255)
+                    ->required(),
+                Forms\Components\TextInput::make('tempat_lahir')
+                    ->required(),
+                Forms\Components\DatePicker::make('tanggal_lahir')
+                    ->default(now())
+                    ->required(),
                 Forms\Components\Textarea::make('alamat')
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->required(),
                 Forms\Components\FileUpload::make('sk_lunas')
                     ->label('Surat Keterangan Lunas')
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->required(),
                 Forms\Components\Textarea::make('keterangan')
                     ->columnSpanFull(),
                 Forms\Components\FileUpload::make('bukti_hasil')
                     ->label('Bukti Hasil')
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn() => auth()->user()->isAdmin() || auth()->user()->isSuperAdmin() || auth()->user()->isStaffBankDPTaspen() || auth()->user()->isStaffBankDPTaspen()),
                 Forms\Components\Select::make('status_permintaan')
                     ->options(function () {
                         $options = [
                             '1' => 'Request',
-
                         ];
                         // Add admin-only option if user is admin
                         if (auth()->user()->isAdmin() || auth()->user()->isSuperAdmin()) { // Adjust this condition as needed
@@ -104,12 +111,6 @@ class OpenFlaggingTifApprovalMitraResource extends Resource
                             $options['5'] = 'Canceled by Mitra';
                         }
 
-                        if (auth()->user()->isApprovalMitraCabang()) {
-                            $options['3'] = 'Approved by Mitra';
-                            $options['4'] = 'Rejected by Mitra';
-                            $options['5'] = 'Canceled by Mitra';
-                        }
-
 
                         return $options;
                     })
@@ -132,12 +133,69 @@ class OpenFlaggingTifApprovalMitraResource extends Resource
                 Tables\Columns\TextColumn::make('tanggal_lahir')
                     ->date()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('sk_lunas')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('status_permintaan'),
-                Tables\Columns\TextColumn::make('bukti_hasil')
-                    ->searchable(),
+                Tables\Columns\IconColumn::make('sk_lunas')
+                    ->label('Surat Keterangan Lunas')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->sk_lunas))
+                    ->openUrlInNewTab()
+                    ->tooltip('Surat Keterangan Lunas')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('biaya_checking')
+                    ->label('Fee Checking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                OpenFlaggingTif::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('status_permintaan')
+                    ->label('Status Permintaan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Request',
+                            '2' => 'Checked by Mitra',
+                            '3' => 'Approved by Mitra',
+                            '4' => 'Rejected by Mitra',
+                            '5' => 'Canceled by Mitra',
+                            '6' => 'Checked by Bank DP Taspen',
+                            '7' => 'Approved by Bank DP Taspen',
+                            '8' => 'Rejected by Bank DP Taspen',
+                            '9' => 'On Process',
+                            '10' => 'Success',
+                            '11' => 'Failed',
+                        ];
 
+                        return $statuses[$state] ?? '-';
+                    })
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            '1' => 'gray',
+                            '2', '6' => 'warning',
+                            '3', '7', '10' => 'success',
+                            '4', '5', '8', '11' => 'danger',
+                            '9' => 'info',
+                            default => 'secondary',
+                        };
+                    }),
+                Tables\Columns\IconColumn::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->bukti_hasil))
+                    ->openUrlInNewTab()
+                    ->tooltip('Bukti Hasil')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()
@@ -152,7 +210,16 @@ class OpenFlaggingTifApprovalMitraResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),

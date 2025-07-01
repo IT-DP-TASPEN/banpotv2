@@ -241,13 +241,15 @@ class FlaggingMutasiTifResource extends Resource
                             default => 'secondary',
                         };
                     }),
-                Tables\Columns\TextColumn::make('bukti_hasil')
+                Tables\Columns\IconColumn::make('bukti_hasil')
                     ->label('Bukti Hasil')
                     ->icon('heroicon-o-document-text')
                     ->url(fn($record) => Storage::url($record->bukti_hasil))
                     ->openUrlInNewTab()
                     ->tooltip('Bukti Hasil')
                     ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
                     ->sortable()

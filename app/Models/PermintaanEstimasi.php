@@ -17,6 +17,7 @@ class PermintaanEstimasi extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
+            $model->permintaan_id = self::generateEstimasiId();
         });
 
         // Set updated_by saat mengupdate data
@@ -68,5 +69,20 @@ class PermintaanEstimasi extends Model
             User::class,
             'created_by'
         );
+    }
+
+    public static function generateEstimasiId(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('permintaan_estimasis')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('permintaan_estimasi_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('E', '', $latestMaster->permintaan_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('E', '', $latestCompleted->permintaan_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'E' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
 }

@@ -17,6 +17,7 @@ class PermintaanChecking extends Model
         // Set created_by saat membuat data
         static::creating(function ($model) {
             $model->created_by = auth()->id();
+            $model->permintaan_id = self::generateCheckingId();
         });
 
         // Set updated_by saat mengupdate data
@@ -68,5 +69,20 @@ class PermintaanChecking extends Model
             User::class,
             'created_by'
         );
+    }
+
+    public static function generateCheckingId(): string
+    {
+        return DB::transaction(function () {
+            $latestMaster = DB::table('permintaan_checkings')->lockForUpdate()->orderBy('id', 'desc')->first();
+            $latestCompleted = DB::table('permintaan_checking_deletes')->lockForUpdate()->orderBy('id', 'desc')->first();
+
+            $lastNumberMaster = $latestMaster ? (int) str_replace('C', '', $latestMaster->permintaan_id) : 0;
+            $lastNumberCompleted = $latestCompleted ? (int) str_replace('C', '', $latestCompleted->permintaan_id) : 0;
+
+            $nextNumber = max($lastNumberMaster, $lastNumberCompleted) + 1;
+
+            return 'C' . str_pad($nextNumber, 15, '0', STR_PAD_LEFT);
+        });
     }
 }

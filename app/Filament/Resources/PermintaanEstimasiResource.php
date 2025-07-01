@@ -2,16 +2,18 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Forms;
+use Filament\Tables;
+use Filament\Forms\Form;
+use Filament\Tables\Table;
+use Filament\Resources\Resource;
+use App\Models\PermintaanEstimasi;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Columns\Summarizers\Summarizer;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\PermintaanEstimasiResource\Pages;
 use App\Filament\Resources\PermintaanEstimasiResource\RelationManagers;
-use App\Models\PermintaanEstimasi;
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PermintaanEstimasiResource extends Resource
 {
@@ -26,24 +28,24 @@ class PermintaanEstimasiResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('permintaan_id')
-                    ->required()
-                    ->unique(ignoreRecord: true)
-                    ->default(function () {
-                        // Ambil ID transaksi terakhir
-                        $latest = PermintaanEstimasi::orderBy('id', 'desc')->first();
+                // Forms\Components\TextInput::make('permintaan_id')
+                //     ->required()
+                //     ->unique(ignoreRecord: true)
+                //     ->default(function () {
+                //         // Ambil ID transaksi terakhir
+                //         $latest = PermintaanEstimasi::orderBy('id', 'desc')->first();
 
-                        // Generate nomor urut
-                        $sequence = $latest ?
-                            (int) str_replace('E', '', $latest->permintaan_id) + 1 :
-                            1;
+                //         // Generate nomor urut
+                //         $sequence = $latest ?
+                //             (int) str_replace('E', '', $latest->permintaan_id) + 1 :
+                //             1;
 
-                        return 'E' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-                    })
-                    ->disabled()
-                    ->dehydrated()
-                    ->columnSpanFull()
-                    ->extraInputAttributes(['style' => 'text-align: center;']),
+                //         return 'E' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+                //     })
+                //     ->disabled()
+                //     ->dehydrated()
+                //     ->columnSpanFull()
+                //     ->extraInputAttributes(['style' => 'text-align: center;']),
                 Forms\Components\TextInput::make('nama_nasabah')
                     ->required(),
                 Forms\Components\TextInput::make('notas')
@@ -109,10 +111,79 @@ class PermintaanEstimasiResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('notas')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('mitraMaster.biaya_check_estimasi')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('status_permintaan'),
-                Tables\Columns\TextColumn::make('bukti_hasil')
+                Tables\Columns\TextColumn::make('biaya_check_estimasi')
+                    ->sortable()
+                    ->label('Fee Check Estimasi')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_check_estimasi ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                PermintaanEstimasi::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_check_estimasi ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('biaya_checking')
+                    ->sortable()
+                    ->label('Fee Checking')
+                    ->getStateUsing(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                    ->formatStateUsing(fn($state) =>  number_format($state, 0, ',', '.'))
+                    ->summarize([
+                        Summarizer::make()
+                            ->label('Total')
+                            ->using(
+                                fn() =>
+                                PermintaanEstimasi::query()
+                                    ->with('mitraMaster')
+                                    ->get()
+                                    ->sum(fn($record) => $record->mitraMaster->biaya_checking ?? 0)
+                            )
+                            ->formatStateUsing(fn($state) =>   number_format($state, 0, ',', '.'))
+                            ->numeric()
+                    ]),
+                Tables\Columns\TextColumn::make('status_permintaan')->label('Status Permintaan')
+                    ->formatStateUsing(function ($state) {
+                        $statuses = [
+                            '1' => 'Request',
+                            '2' => 'Checked by Mitra',
+                            '3' => 'Approved by Mitra',
+                            '4' => 'Rejected by Mitra',
+                            '5' => 'Canceled by Mitra',
+                            '6' => 'Checked by Bank DP Taspen',
+                            '7' => 'Approved by Bank DP Taspen',
+                            '8' => 'Rejected by Bank DP Taspen',
+                            '9' => 'On Process',
+                            '10' => 'Success',
+                            '11' => 'Failed',
+                        ];
+
+                        return $statuses[$state] ?? '-';
+                    })
+                    ->badge()
+                    ->color(function ($state) {
+                        return match ($state) {
+                            '1' => 'gray',
+                            '2', '6' => 'warning',
+                            '3', '7', '10' => 'success',
+                            '4', '5', '8', '11' => 'danger',
+                            '9' => 'info',
+                            default => 'secondary',
+                        };
+                    }),
+                Tables\Columns\IconColumn::make('bukti_hasil')
+                    ->label('Bukti Hasil')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn($record) => Storage::url($record->bukti_hasil))
+                    ->openUrlInNewTab()
+                    ->tooltip('Bukti Hasil')
+                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('keterangan')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('deleted_at')
                     ->dateTime()
@@ -128,7 +199,16 @@ class PermintaanEstimasiResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\Filter::make('created_at')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')->label('Created From'),
+                        Forms\Components\DatePicker::make('created_until')->label('Created Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['created_from'], fn($query, $date) => $query->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn($query, $date) => $query->whereDate('created_at', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
