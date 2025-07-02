@@ -18,7 +18,7 @@ class BanpotStatusPerbulanChart extends ChartWidget
     {
         return 2; // Lebar 2 kolom
     }
-
+    //
     protected function getData(): array
     {
         $user = Auth::user();
