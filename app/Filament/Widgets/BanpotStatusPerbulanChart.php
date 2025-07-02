@@ -81,4 +81,6 @@ class BanpotStatusPerbulanChart extends ChartWidget
         $user = auth()->user();
         return $user->isSuperAdmin() || $user->isAdmin() || $user->isStaffMitraPusat() || $user->isApprovalMitraPusat();
     }
+
+    //test
 }

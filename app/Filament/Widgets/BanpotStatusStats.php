@@ -130,4 +130,5 @@ class BanpotStatusStats extends BaseWidget
                 ->chart($failedData->toArray()),
         ];
     }
+    //test
 }
